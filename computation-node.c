@@ -29,8 +29,8 @@ AUTOSTART_PROCESSES(&computation_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(computation_process, ev, data)
 {
-  static struct etimer periodic_timer;
-  static unsigned count = 0;
+  //static struct etimer periodic_timer;
+  //static unsigned count = 0;
 
   PROCESS_BEGIN();
 
