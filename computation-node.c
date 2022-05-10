@@ -1,6 +1,11 @@
 #include "contiki.h"
-#include "node.h"
-#include <stdio.h>
+#include "net/netstack.h"
+#include "net/nullnet/nullnet.h"
+#include <string.h>
+#include <stdio.h> /* For printf() */
+
+/* Log configuration */
+#include "sys/log.h"
 
 uint16_t
 

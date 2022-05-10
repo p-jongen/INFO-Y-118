@@ -1,8 +1,13 @@
 #include "contiki.h"
-#include "node.h"
 #include "net/netstack.h"
 #include "net/nullnet/nullnet.h"
-#include <stdio.h>
+#include <string.h>
+#include <stdio.h> /* For printf() */
+
+/* Log configuration */
+#include "sys/log.h"
+
+#define SEND_INTERVAL (8 * CLOCK_SECOND)
 
 static short static_rank;
 
@@ -19,11 +24,26 @@ PROCESS_THREAD(border_process, ev, data)
   printf("[BORDER NODE] Starting unicast and broadcast...");
   static_rank = 1;
 
+    etimer_set(&periodic_timer, SEND_INTERVAL);
+    while(1) {
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+        LOG_INFO("Sending %u to ", count);
+        LOG_INFO_LLADDR(NULL);
+        LOG_INFO_("\n");
+
+        memcpy(nullnet_buf, &count, sizeof(count));
+        nullnet_len = sizeof(count);
+
+        NETSTACK_NETWORK.output(NULL);
+        count++;
+        etimer_reset(&periodic_timer);
+    }
+    /*
   uint8_t payload[64] = { 0 };
   nullnet_buf = payload;
-  nullnet_len = 2;          //in byte
+  nullnet_len = 2;
   NETSTACK_NETWORK.output(NULL);
-
+*/
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
