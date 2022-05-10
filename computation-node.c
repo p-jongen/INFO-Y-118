@@ -14,6 +14,7 @@
 void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
 {
+    LOG_INFO("Enter input_callBack");
     if(len == sizeof(unsigned)) {
         unsigned count;
         memcpy(&count, data, sizeof(count));
@@ -50,6 +51,9 @@ PROCESS_THREAD(computation_process, ev, data)
   while(1){
 
       PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+      LOG_INFO("Wait into While");
+      etimer_reset(&periodic_timer);
+
   }
 
   /*
