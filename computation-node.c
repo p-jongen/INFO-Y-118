@@ -10,14 +10,22 @@
 #define LOG_MODULE "App"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
-PROCESS(computation_process, "Computation node");
+/* Configuration */
+#define SEND_INTERVAL (8 * CLOCK_SECOND)
+
+#if MAC_CONF_WITH_TSCH
+#include "net/mac/tsch/tsch.h"
+static linkaddr_t coordinator_addr =  {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }};
+#endif /* MAC_CONF_WITH_TSCH */
+
+/*---------------------------------------------------------------------------*/
+PROCESS(computation_process, "computation_process");
 AUTOSTART_PROCESSES(&computation_process);
 
-//Receiving with NullNet
+/*---------------------------------------------------------------------------*/
 void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
 {
-    LOG_INFO("Enter input_callBack");
     if(len == sizeof(unsigned)) {
         unsigned count;
         memcpy(&count, data, sizeof(count));
@@ -26,54 +34,37 @@ void input_callback(const void *data, uint16_t len,
         LOG_INFO_("\n");
     }
 }
-
-
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(computation_process, ev, data)
 {
-  static struct etimer periodic_timer;
-  //static unsigned count = 0;
+static struct etimer periodic_timer;
+static unsigned count = 0;
 
-  PROCESS_BEGIN();
+PROCESS_BEGIN();
 
-    #if MAC_CONF_WITH_TSCH
-    tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
-    #endif /* MAC_CONF_WITH_TSCH */
+#if MAC_CONF_WITH_TSCH
+tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
+#endif /* MAC_CONF_WITH_TSCH */
 
-  /* Initialize NullNet */
-  /*
-  nullnet_buf = (uint8_t *)&count;
-  nullnet_len = sizeof(count);
-  nullnet_set_input_callback(input_callback);
-*/
-  //Receiving with NullNet (set a event)
+/* Initialize NullNet */
+nullnet_buf = (uint8_t *)&count;
+nullnet_len = sizeof(count);
+nullnet_set_input_callback(input_callback);
 
-  nullnet_set_input_callback(input_callback);
+etimer_set(&periodic_timer, SEND_INTERVAL);
+while(1) {
+PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+LOG_INFO("Sending %u to ", count);
+LOG_INFO_LLADDR(NULL);
+LOG_INFO_("\n");
 
-  while(1){
+memcpy(nullnet_buf, &count, sizeof(count));
+nullnet_len = sizeof(count);
 
-      PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-      LOG_INFO("Wait into While");
-      etimer_reset(&periodic_timer);
-
-  }
-
-  /*
-  if(!linkaddr_cmp(&dest_addr, &linkaddr_node_addr)) {
-    etimer_set(&periodic_timer, SEND_INTERVAL);
-    while(1) {
-      PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-      LOG_INFO("Sending %u to ", count);
-      LOG_INFO_LLADDR(&dest_addr);
-      LOG_INFO_("\n");
-
-      NETSTACK_NETWORK.output(&dest_addr);
-      count++;
-      etimer_reset(&periodic_timer);
-    }
-  }
-*/
-
-  PROCESS_END();
+NETSTACK_NETWORK.output(NULL);
+count++;
+etimer_reset(&periodic_timer);
 }
-/*---------------------------------------------------------------------------*/
+
+PROCESS_END();
+}
