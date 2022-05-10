@@ -10,6 +10,9 @@
 #define LOG_MODULE "App"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
+PROCESS(computation_process, "Computation node");
+AUTOSTART_PROCESSES(&computation_process);
+
 //Receiving with NullNet
 void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
@@ -24,8 +27,6 @@ void input_callback(const void *data, uint16_t len,
     }
 }
 
-PROCESS(computation_process, "Computation node");
-AUTOSTART_PROCESSES(&computation_process);
 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(computation_process, ev, data)
@@ -48,6 +49,7 @@ PROCESS_THREAD(computation_process, ev, data)
   //Receiving with NullNet (set a event)
 
   nullnet_set_input_callback(input_callback);
+
   while(1){
 
       PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
