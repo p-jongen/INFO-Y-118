@@ -3,6 +3,7 @@
 #include "net/nullnet/nullnet.h"
 #include <string.h>
 #include <stdio.h> /* For printf() */
+#include "node.h"
 
 /* Log configuration */
 #include "sys/log.h"

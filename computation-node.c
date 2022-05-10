@@ -3,6 +3,7 @@
 #include "net/nullnet/nullnet.h"
 #include <string.h>
 #include <stdio.h> /* For printf() */
+#include "node.h"
 
 /* Log configuration */
 #include "sys/log.h"
@@ -32,6 +33,10 @@ PROCESS_THREAD(computation_process, ev, data)
   static unsigned count = 0;
 
   PROCESS_BEGIN();
+
+    #if MAC_CONF_WITH_TSCH
+    tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
+    #endif /* MAC_CONF_WITH_TSCH */
 
   /* Initialize NullNet */
   /*

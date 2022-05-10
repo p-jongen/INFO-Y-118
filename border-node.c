@@ -3,11 +3,17 @@
 #include "net/nullnet/nullnet.h"
 #include <string.h>
 #include <stdio.h> /* For printf() */
+#include "node.h"
 
 /* Log configuration */
 #include "sys/log.h"
 
 #define SEND_INTERVAL (8 * CLOCK_SECOND)
+
+#if MAC_CONF_WITH_TSCH
+#include "net/mac/tsch/tsch.h"
+static linkaddr_t coordinator_addr =  {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }};
+#endif /* MAC_CONF_WITH_TSCH */
 
 static short static_rank;
 
