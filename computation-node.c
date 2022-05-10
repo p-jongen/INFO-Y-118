@@ -2,6 +2,21 @@
 #include "node.h"
 #include <stdio.h>
 
+uint16_t
+
+//Receiving with NullNet
+void input_callback(const void *data, uint16_t len,
+                    const linkaddr_t *src, const linkaddr_t *dest)
+{
+    if(len == sizeof(unsigned)) {
+        unsigned count;
+        memcpy(&count, data, sizeof(count));
+        LOG_INFO("Received %u from ", count);
+        LOG_INFO_LLADDR(src);
+        LOG_INFO_("\n");
+    }
+}
+
 PROCESS(computation_process, "Computation node");
 AUTOSTART_PROCESSES(&computation_process);
 
@@ -14,10 +29,19 @@ PROCESS_THREAD(computation_process, ev, data)
   PROCESS_BEGIN();
 
   /* Initialize NullNet */
+  /*
   nullnet_buf = (uint8_t *)&count;
   nullnet_len = sizeof(count);
   nullnet_set_input_callback(input_callback);
+*/
+  //Receiving with NullNet (set a event)
+  nullnet_set_input_callback(input_callback);
+  while(1){
 
+
+  }
+
+  /*
   if(!linkaddr_cmp(&dest_addr, &linkaddr_node_addr)) {
     etimer_set(&periodic_timer, SEND_INTERVAL);
     while(1) {
@@ -31,6 +55,7 @@ PROCESS_THREAD(computation_process, ev, data)
       etimer_reset(&periodic_timer);
     }
   }
+*/
 
   PROCESS_END();
 }

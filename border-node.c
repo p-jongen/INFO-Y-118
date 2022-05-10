@@ -21,7 +21,7 @@ PROCESS_THREAD(border_process, ev, data)
 
   uint8_t payload[64] = { 0 };
   nullnet_buf = payload;
-  nullnet_len = 2;
+  nullnet_len = 2;          //in byte
   NETSTACK_NETWORK.output(NULL);
 
   PROCESS_END();
