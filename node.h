@@ -12,4 +12,4 @@ struct Node {
     linkaddr_t address;
     uint8_t rank;
     node_t *parent; //if parent == NULL => Border router node
-}
+};
