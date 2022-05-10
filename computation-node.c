@@ -29,7 +29,7 @@ AUTOSTART_PROCESSES(&computation_process);
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(computation_process, ev, data)
 {
-  //static struct etimer periodic_timer;
+  static struct etimer periodic_timer;
   //static unsigned count = 0;
 
   PROCESS_BEGIN();
@@ -49,7 +49,7 @@ PROCESS_THREAD(computation_process, ev, data)
   nullnet_set_input_callback(input_callback);
   while(1){
 
-
+      PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
   }
 
   /*
