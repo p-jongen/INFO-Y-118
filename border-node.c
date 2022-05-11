@@ -41,7 +41,7 @@ void input_callback(const void *data, uint16_t len,
 
 PROCESS_THREAD(border_process_init, ev, data)
 {
-    static struct etimer periodic_timer;
+    //static struct etimer periodic_timer;
 
     PROCESS_BEGIN();
     #if MAC_CONF_WITH_TSCH
@@ -49,7 +49,8 @@ PROCESS_THREAD(border_process_init, ev, data)
     #endif /* MAC_CONF_WITH_TSCH */
     LOG_INFO("FIRST THREAD");
     LOG_INFO("\n");
-    printf("first thread en print")
+    printf("first thread en print");
+    PROCESS_END();
 }
 
 /*---------------------------------------------------------------------------*/
@@ -57,7 +58,7 @@ PROCESS_THREAD(border_process, ev, data)
 {
     static struct etimer periodic_timer;
     static unsigned count = 0;
-    static short rank = 1;
+    //static short rank = 1;
 
     PROCESS_BEGIN();
 
