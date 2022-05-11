@@ -49,7 +49,7 @@ PROCESS_THREAD(computation_process, ev, data)
     /* Initialize NullNet */
     nullnet_buf = (uint8_t *)&count;
     nullnet_len = sizeof(count);
-    nullnet_set_input_callback(input_callback);
+        nullnet_set_input_callback(input_callback);
 
     etimer_set(&periodic_timer, SEND_INTERVAL);
     while(1) {

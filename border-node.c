@@ -41,12 +41,23 @@ void input_callback(const void *data, uint16_t len,
 
 PROCESS_THREAD(border_process_init, ev, data)
 {
-    //static struct etimer periodic_timer;
 
+    int border_header[64] = {[0 ... 63] = -1};
+    static short rank = 1;
+    //static struct etimer periodic_timer;
+    broadInfoFromBorder(rank);
     PROCESS_BEGIN();
+
+    //INIT
+    broadcastMsg msgPrep;
+    msgPrep.rank = rank;
+    msgPrep.typeMsg = 1;
+    constructHeader(border_header, msgPrep);
+
     #if MAC_CONF_WITH_TSCH
     tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
     #endif /* MAC_CONF_WITH_TSCH */
+
     LOG_INFO("FIRST THREAD");
     LOG_INFO("\n");
     printf("first thread en print");
@@ -58,9 +69,9 @@ PROCESS_THREAD(border_process, ev, data)
 {
     static struct etimer periodic_timer;
     static unsigned count = 0;
-    //static short rank = 1;
 
     PROCESS_BEGIN();
+
 
     #if MAC_CONF_WITH_TSCH
     tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
