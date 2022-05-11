@@ -18,9 +18,11 @@
 static linkaddr_t coordinator_addr =  {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }};
 #endif /* MAC_CONF_WITH_TSCH */
 
+
 /*---------------------------------------------------------------------------*/
+PROCESS(border_process_init, "border_process");
 PROCESS(border_process, "border_process");
-AUTOSTART_PROCESSES(&border_process);
+AUTOSTART_PROCESSES(&border_process_init,&border_process );
 
 /*---------------------------------------------------------------------------*/
 void input_callback(const void *data, uint16_t len,
@@ -34,11 +36,26 @@ void input_callback(const void *data, uint16_t len,
         LOG_INFO_("\n");
     }
 }
+
+/*---------------------------------------------------------------------------*/
+
+PROCESS_THREAD(border_process_init, ev, data)
+{
+    static struct etimer periodic_timer;
+
+    PROCESS_BEGIN();
+    #if MAC_CONF_WITH_TSCH
+    tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
+    #endif /* MAC_CONF_WITH_TSCH */
+    LOG_INFO("FIRST THREAD");
+}
+
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(border_process, ev, data)
 {
     static struct etimer periodic_timer;
     static unsigned count = 0;
+    static short rank = 1;
 
     PROCESS_BEGIN();
 
@@ -52,6 +69,7 @@ PROCESS_THREAD(border_process, ev, data)
 
     //nullnet_set_input_callback(input_callback);
 
+    LOG_INFO("SECOND THREAD");
     etimer_set(&periodic_timer, SEND_INTERVAL);
     while(1) {
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
