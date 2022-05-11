@@ -48,6 +48,8 @@ PROCESS_THREAD(border_process_init, ev, data)
     tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
     #endif /* MAC_CONF_WITH_TSCH */
     LOG_INFO("FIRST THREAD");
+    LOG_INFO("\n");
+    printf("first thread en print")
 }
 
 /*---------------------------------------------------------------------------*/
@@ -70,6 +72,7 @@ PROCESS_THREAD(border_process, ev, data)
     //nullnet_set_input_callback(input_callback);
 
     LOG_INFO("SECOND THREAD");
+    LOG_INFO("\n");
     etimer_set(&periodic_timer, SEND_INTERVAL);
     while(1) {
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
