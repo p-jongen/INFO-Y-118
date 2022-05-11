@@ -37,34 +37,35 @@ void input_callback(const void *data, uint16_t len,
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(border_process, ev, data)
 {
-static struct etimer periodic_timer;
-static unsigned count = 0;
+    static struct etimer periodic_timer;
+    static unsigned count = 0;
 
-PROCESS_BEGIN();
+    PROCESS_BEGIN();
 
-#if MAC_CONF_WITH_TSCH
-tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
-#endif /* MAC_CONF_WITH_TSCH */
+    #if MAC_CONF_WITH_TSCH
+    tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
+    #endif /* MAC_CONF_WITH_TSCH */
 
-/* Initialize NullNet */
-nullnet_buf = (uint8_t *)&count;
-nullnet_len = sizeof(count);
-nullnet_set_input_callback(input_callback);
+    /* Initialize NullNet */
+    nullnet_buf = (uint8_t *)&count;
+    nullnet_len = sizeof(count);
 
-etimer_set(&periodic_timer, SEND_INTERVAL);
-while(1) {
-PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-LOG_INFO("Sending %u to ", count);
-LOG_INFO_LLADDR(NULL);
-LOG_INFO_("\n");
+    //nullnet_set_input_callback(input_callback);
 
-memcpy(nullnet_buf, &count, sizeof(count));
-nullnet_len = sizeof(count);
+    etimer_set(&periodic_timer, SEND_INTERVAL);
+    while(1) {
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+        LOG_INFO("Sending %u to ", count);
+        LOG_INFO_LLADDR(NULL);
+        LOG_INFO_("\n");
 
-NETSTACK_NETWORK.output(NULL);
-count++;
-etimer_reset(&periodic_timer);
-}
+        memcpy(nullnet_buf, &count, sizeof(count));
+        nullnet_len = sizeof(count);
 
-PROCESS_END();
+        NETSTACK_NETWORK.output(NULL);
+        count++;
+        etimer_reset(&periodic_timer);
+    }
+
+    PROCESS_END();
 }

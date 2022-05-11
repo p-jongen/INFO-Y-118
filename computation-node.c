@@ -37,34 +37,30 @@ void input_callback(const void *data, uint16_t len,
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(computation_process, ev, data)
 {
-static struct etimer periodic_timer;
-static unsigned count = 0;
+    static struct etimer periodic_timer;
+    static unsigned count = 0;
 
-PROCESS_BEGIN();
+    PROCESS_BEGIN();
 
-#if MAC_CONF_WITH_TSCH
-tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
-#endif /* MAC_CONF_WITH_TSCH */
+    #if MAC_CONF_WITH_TSCH
+    tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
+    #endif /* MAC_CONF_WITH_TSCH */
 
-/* Initialize NullNet */
-nullnet_buf = (uint8_t *)&count;
-nullnet_len = sizeof(count);
-nullnet_set_input_callback(input_callback);
+    /* Initialize NullNet */
+    nullnet_buf = (uint8_t *)&count;
+    nullnet_len = sizeof(count);
+    nullnet_set_input_callback(input_callback);
 
-etimer_set(&periodic_timer, SEND_INTERVAL);
-while(1) {
-PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-LOG_INFO("Sending %u to ", count);
-LOG_INFO_LLADDR(NULL);
-LOG_INFO_("\n");
+    etimer_set(&periodic_timer, SEND_INTERVAL);
+    while(1) {
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+        LOG_INFO("Into the While(1) Compute");
+        LOG_INFO_("\n");
 
-memcpy(nullnet_buf, &count, sizeof(count));
-nullnet_len = sizeof(count);
 
-NETSTACK_NETWORK.output(NULL);
-count++;
-etimer_reset(&periodic_timer);
-}
+        NETSTACK_NETWORK.output(NULL);
+        etimer_reset(&periodic_timer);
+    }
 
-PROCESS_END();
+    PROCESS_END();
 }
