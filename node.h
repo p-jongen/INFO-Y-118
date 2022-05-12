@@ -18,7 +18,6 @@ struct Node {
     uint8_t rank;
     node_t *parent; //if parent == NULL => Border router node
 };
-};
 
 typedef struct Message broadcastMsg;
 struct Message {
