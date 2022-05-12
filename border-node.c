@@ -28,7 +28,7 @@ AUTOSTART_PROCESSES(&border_process_init /*,&border_process*/ );
 void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
 {
-    LOG_INFO("Received (outside if in border node)");
+    LOG_INFO("Received in Border\n");
     if(len == sizeof(unsigned)) {
         unsigned count;
         memcpy(&count, data, sizeof(count));
@@ -64,7 +64,8 @@ PROCESS_THREAD(border_process_init, ev, data)
 
     nullnet_buf = (uint8_t *)&border_header;
     nullnet_len = sizeof(border_header);
-    nullnet_set_input_callback(input_callback);
+
+    //nullnet_set_input_callback(input_callback);
     NETSTACK_NETWORK.output(NULL);
     
     PROCESS_END();
