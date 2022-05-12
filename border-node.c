@@ -1,3 +1,4 @@
+@@ -1,93 +1,104 @@
 #include "contiki.h"
 #include "net/netstack.h"
 #include "net/nullnet/nullnet.h"
@@ -41,45 +42,35 @@ void input_callback(const void *data, uint16_t len,
 
 PROCESS_THREAD(border_process_init, ev, data)
 {
-    short rank = 1;
-    unsigned border_header;
-    static struct etimer periodic_timer;
+//static struct etimer periodic_timer;
 
-    PROCESS_BEGIN();
+uint8_t  border_header[64] = {[0 ... 63] = -1};
+static short rank = 1;
+//static struct etimer periodic_timer;
+broadInfoFromBorder(rank);
+PROCESS_BEGIN();
 
-    //INIT
-    broadcastMsg msgPrep;
-    msgPrep.rank = rank;
-    msgPrep.typeMsg = 1;
-    constructHeader(header, msgPrep);
+//INIT
+broadcastMsg msgPrep;
+msgPrep.rank = rank;
+msgPrep.typeMsg = 1;
+constructHeader(border_header, msgPrep);
 
-    #if MAC_CONF_WITH_TSCH
-    tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
-    #endif /* MAC_CONF_WITH_TSCH */
+#if MAC_CONF_WITH_TSCH
+tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
+#endif /* MAC_CONF_WITH_TSCH */
 
-    LOG_INFO("FIRST THREAD");
-    LOG_INFO("\n");
-
-    //buffer
-
-    nullnet_buf = (uint8_t *)&header;
-    nullnet_len = sizeof(header);
-
-    NETSTACK_NETWORK.output(NULL);
-
-    etimer_set(&periodic_timer, SEND_INTERVAL);
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-    //memcpy(nullnet_buf, &count, sizeof(count));
-    LOG_INFO("END FIRST THREAD");
-
+LOG_INFO("FIRST THREAD");
+LOG_INFO("\n");
+printf("first thread en print");
 PROCESS_END();
 }
 
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(border_process, ev, data)
-{
+PROCESS_THREAD(border_process, ev, data){
     static struct etimer periodic_timer;
     static unsigned count = 0;
+    //static short rank = 1;
 
     PROCESS_BEGIN();
 
@@ -98,7 +89,7 @@ PROCESS_THREAD(border_process, ev, data)
     LOG_INFO("\n");
     etimer_set(&periodic_timer, SEND_INTERVAL);
     while(1) {
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+            PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
         LOG_INFO("Sending %u to ", count);
         LOG_INFO_LLADDR(NULL);
         LOG_INFO_("\n");
@@ -110,6 +101,5 @@ PROCESS_THREAD(border_process, ev, data)
         count++;
         etimer_reset(&periodic_timer);
     }
-
     PROCESS_END();
 }

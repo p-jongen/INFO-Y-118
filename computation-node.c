@@ -27,8 +27,8 @@ void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
 {
     if(len == sizeof(unsigned)) {
-        int header_received[64] = {[0 ... 63] = -1};
-        memcpy(&header_received, data, sizeof(header_received));
+        unsigned count;
+        memcpy(&count, data, sizeof(count));
         LOG_INFO("Received %u from ", count);
         LOG_INFO_LLADDR(src);
         LOG_INFO_("\n");
@@ -37,27 +37,31 @@ void input_callback(const void *data, uint16_t len,
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(computation_process, ev, data)
 {
-    static struct etimer periodic_timer;
-    static unsigned count = 0;
+static struct etimer periodic_timer;
+static unsigned count = 0;
 
-    PROCESS_BEGIN();
+PROCESS_BEGIN();
 
-    #if MAC_CONF_WITH_TSCH
-    tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
-    #endif /* MAC_CONF_WITH_TSCH */
+#if MAC_CONF_WITH_TSCH
+tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
+#endif /* MAC_CONF_WITH_TSCH */
 
-    nullnet_set_input_callback(input_callback);
-    etimer_set(&periodic_timer, SEND_INTERVAL);
+/* Initialize NullNet */
+nullnet_buf = (uint8_t *)&count;
+nullnet_len = sizeof(count);
+nullnet_set_input_callback(input_callback);
+nullnet_set_input_callback(input_callback);
 
-    while(1) {
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-        LOG_INFO("Into the While(1) Compute");
-        LOG_INFO_("\n");
+etimer_set(&periodic_timer, SEND_INTERVAL);
+while(1) {
+PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+LOG_INFO("Into the While(1) Compute");
+LOG_INFO_("\n");
 
 
-        NETSTACK_NETWORK.output(NULL);
-        etimer_reset(&periodic_timer);
-    }
+NETSTACK_NETWORK.output(NULL);
+etimer_reset(&periodic_timer);
+}
 
-    PROCESS_END();
+PROCESS_END();
 }
