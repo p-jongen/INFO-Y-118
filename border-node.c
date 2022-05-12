@@ -21,13 +21,14 @@ static linkaddr_t coordinator_addr =  {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0
 
 /*---------------------------------------------------------------------------*/
 PROCESS(border_process_init, "border_process");
-PROCESS(border_process, "border_process");
-AUTOSTART_PROCESSES(&border_process_init,&border_process );
+//PROCESS(border_process, "border_process");
+AUTOSTART_PROCESSES(&border_process_init /*,&border_process*/ );
 
 /*---------------------------------------------------------------------------*/
 void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
 {
+    LOG_INFO("Received (outside if in border node)");
     if(len == sizeof(unsigned)) {
         unsigned count;
         memcpy(&count, data, sizeof(count));
@@ -39,12 +40,12 @@ void input_callback(const void *data, uint16_t len,
 
 /*---------------------------------------------------------------------------*/
 
-PROCESS_THREAD(border_process_init, ev, data){
+PROCESS_THREAD(border_process_init, ev, data)
+{
     //static struct etimer periodic_timer;
 
     uint8_t  border_header[64] = {[0 ... 63] = -1};
     static short rank = 1;
-    //static struct etimer periodic_timer;
     PROCESS_BEGIN();
 
     //INIT
@@ -53,15 +54,20 @@ PROCESS_THREAD(border_process_init, ev, data){
     msgPrep.typeMsg = 1;
     constructHeader(border_header, msgPrep);
 
-    nullnet_buf = (uint8_t *)&border_header;
-    nullnet_len = sizeof(border_header);
-    NETSTACK_NETWORK.output(NULL);
+    #if MAC_CONF_WITH_TSCH
+    tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
+    #endif /* MAC_CONF_WITH_TSCH */
 
     LOG_INFO("FIRST THREAD");
     LOG_INFO("\n");
+    printf("first thread en print");
 
-
-PROCESS_END();
+    nullnet_buf = (uint8_t *)&border_header;
+    nullnet_len = sizeof(border_header);
+    nullnet_set_input_callback(input_callback);
+    NETSTACK_NETWORK.output(NULL);
+    
+    PROCESS_END();
 }
 
 /*---------------------------------------------------------------------------*/
@@ -82,7 +88,7 @@ PROCESS_THREAD(border_process, ev, data){
     LOG_INFO("\n");
     etimer_set(&periodic_timer, SEND_INTERVAL);
     while(1) {
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+            PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
         LOG_INFO("Sending %u to ", count);
         LOG_INFO_LLADDR(NULL);
         LOG_INFO_("\n");
@@ -95,4 +101,5 @@ PROCESS_THREAD(border_process, ev, data){
         etimer_reset(&periodic_timer);
     }
     PROCESS_END();
-}*/
+}
+*/
