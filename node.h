@@ -27,22 +27,9 @@ struct Message {
 };
 
 // ======== global functions =========
-void constructHeader(int header[64], broadcastMsg objet){
-    //add typeMessg dans Header
-    int typeMsgTab[2];
-    typeMsgTab[1] = (objet.typeMsg)/10;
-    typeMsgTab[0] = (objet.typeMsg%10);
-    for(int i = 0 ; i < lenTypeMsg ; i++){
-        header[i] = typeMsgTab[i];
-    }
-
-    printf("\n");
-    //add Rank dans Header
-    int rankTab[3];
-    rankTab[2] = (objet.rank)/100;
-    rankTab[1] = (objet.rank%100)/10;
-    rankTab[0] = (objet.rank%10);
-    for(int i = 0 ; i < lenRank ; i++){
-        header[i+lenTypeMsg] = rankTab[i];
-    }
+unsigned constructHeader(unsigned header, broadcastMsg objet){
+    header = 100000;                     //caractère de début de header
+    header += objet.typeMsg*1;
+    header += (objet.rank*100);
+    return header;
 }

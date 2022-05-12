@@ -27,8 +27,8 @@ void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
 {
     if(len == sizeof(unsigned)) {
-        unsigned count;
-        memcpy(&count, data, sizeof(count));
+        int header_received[64] = {[0 ... 63] = -1};
+        memcpy(&header_received, data, sizeof(header_received));
         LOG_INFO("Received %u from ", count);
         LOG_INFO_LLADDR(src);
         LOG_INFO_("\n");
@@ -46,12 +46,9 @@ PROCESS_THREAD(computation_process, ev, data)
     tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
     #endif /* MAC_CONF_WITH_TSCH */
 
-    /* Initialize NullNet */
-    nullnet_buf = (uint8_t *)&count;
-    nullnet_len = sizeof(count);
-        nullnet_set_input_callback(input_callback);
-
+    nullnet_set_input_callback(input_callback);
     etimer_set(&periodic_timer, SEND_INTERVAL);
+
     while(1) {
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
         LOG_INFO("Into the While(1) Compute");

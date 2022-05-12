@@ -41,10 +41,9 @@ void input_callback(const void *data, uint16_t len,
 
 PROCESS_THREAD(border_process_init, ev, data)
 {
-
-    int border_header[64] = {[0 ... 63] = -1};
-    static short rank = 1;
-    //static struct etimer periodic_timer;
+    short rank = 1;
+    unsigned border_header;
+    static struct etimer periodic_timer;
 
     PROCESS_BEGIN();
 
@@ -52,7 +51,7 @@ PROCESS_THREAD(border_process_init, ev, data)
     broadcastMsg msgPrep;
     msgPrep.rank = rank;
     msgPrep.typeMsg = 1;
-    constructHeader(border_header, msgPrep);
+    constructHeader(header, msgPrep);
 
     #if MAC_CONF_WITH_TSCH
     tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
@@ -62,13 +61,15 @@ PROCESS_THREAD(border_process_init, ev, data)
     LOG_INFO("\n");
 
     //buffer
-    nullnet_buf = border_header;
-    nullnet_len = sizeof(border_header);
+
+    nullnet_buf = (uint8_t *)&header;
+    nullnet_len = sizeof(header);
+
     NETSTACK_NETWORK.output(NULL);
 
     etimer_set(&periodic_timer, SEND_INTERVAL);
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-    memcpy(nullnet_buf, &count, sizeof(count));
+    //memcpy(nullnet_buf, &count, sizeof(count));
     LOG_INFO("END FIRST THREAD");
 
 PROCESS_END();
