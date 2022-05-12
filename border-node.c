@@ -45,7 +45,7 @@ PROCESS_THREAD(border_process_init, ev, data)
     int border_header[64] = {[0 ... 63] = -1};
     static short rank = 1;
     //static struct etimer periodic_timer;
-    broadInfoFromBorder(rank);
+
     PROCESS_BEGIN();
 
     //INIT
@@ -60,8 +60,18 @@ PROCESS_THREAD(border_process_init, ev, data)
 
     LOG_INFO("FIRST THREAD");
     LOG_INFO("\n");
-    printf("first thread en print");
-    PROCESS_END();
+
+    //buffer
+    nullnet_buf = border_header;
+    nullnet_len = sizeof(border_header);
+    NETSTACK_NETWORK.output(NULL);
+
+    etimer_set(&periodic_timer, SEND_INTERVAL);
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+    memcpy(nullnet_buf, &count, sizeof(count));
+    LOG_INFO("END FIRST THREAD");
+
+PROCESS_END();
 }
 
 /*---------------------------------------------------------------------------*/
