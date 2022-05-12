@@ -1,3 +1,4 @@
+
 #include "contiki.h"
 #include "net/netstack.h"
 #include "net/nullnet/nullnet.h"
@@ -13,20 +14,15 @@
 /* Configuration */
 #define SEND_INTERVAL (8 * CLOCK_SECOND)
 
-#if MAC_CONF_WITH_TSCH
-#include "net/mac/tsch/tsch.h"
-static linkaddr_t coordinator_addr =  {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }};
-#endif /* MAC_CONF_WITH_TSCH */
 
 /*---------------------------------------------------------------------------*/
-PROCESS(computation_process, "computation_process");
-AUTOSTART_PROCESSES(&computation_process);
+PROCESS(nullnet_example_process, "NullNet broadcast example");
+AUTOSTART_PROCESSES(&nullnet_example_process);
 
 /*---------------------------------------------------------------------------*/
 void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
 {
-    LOG_INFO("Received (outside if in computation)\n");
     if(len == sizeof(unsigned)) {
         unsigned count;
         memcpy(&count, data, sizeof(count));
@@ -35,29 +31,50 @@ void input_callback(const void *data, uint16_t len,
         LOG_INFO_("\n");
     }
 }
-/*---------------------------------------------------------------------------*/
-PROCESS_THREAD(computation_process, ev, data)
-{
-static struct etimer periodic_timer;
 
-PROCESS_BEGIN();
+void askForParentBroad(){
+    broadcastMsg msgPrep;
+    msgPrep.rank = rank;
+    msgPrep.typeMsg = 2;
 
-#if MAC_CONF_WITH_TSCH
-tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
-#endif /* MAC_CONF_WITH_TSCH */
-
-nullnet_set_input_callback(input_callback);
-
-etimer_set(&periodic_timer, SEND_INTERVAL);
-while(1) {
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-
-    LOG_INFO("into WHILE Computation\n");
-
+    int header[64] = {[0 ... 63] = -1};
+    constructHeader(header, msgPrep);
+    nullnet_buf = (uint8_t *)&header;
+    nullnet_len = sizeof(header);
+    LOG_INFO("Sending request Parent\n");
+    //nullnet_set_input_callback(input_callback);   LISTENER
 
     NETSTACK_NETWORK.output(NULL);
-    etimer_reset(&periodic_timer);
 }
 
-PROCESS_END();
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(nullnet_example_process, ev, data)
+{
+    static struct etimer periodic_timer;
+    uint8_t  border_header[64] = {[0 ... 63] = -1};
+    static short rank = 255;            //max rank car cherche un parent
+    static int parent_Add = -1;
+
+    PROCESS_BEGIN();
+
+    /*
+    nullnet_buf = (uint8_t *)&count;
+    nullnet_len = sizeof(count);
+    nullnet_set_input_callback(input_callback);
+    */
+    etimer_set(&periodic_timer, SEND_INTERVAL);
+    while(1) {
+        if(parent_Add==-1){
+            askForParentBroad();
+        }else{
+            LOG_INFO("Parent != -1\n");
+        }
+
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+
+
+        etimer_reset(&periodic_timer);
+    }
+
+    PROCESS_END();
 }
