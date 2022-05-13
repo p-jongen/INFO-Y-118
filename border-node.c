@@ -22,7 +22,7 @@ PROCESS(nullnet_example_process, "NullNet broadcast example");
 AUTOSTART_PROCESSES(&nullnet_example_process);
 
 void sendParentProposal(){
-    LOG_INFO_("Border send parent Proposal (rank = %d\n)", msgPrep.rank);
+    LOG_INFO_("Border send parent Proposal (rank = %d\n)", RANK);
     broadcastMsg msgPrep;           //prepare info
     msgPrep.rank = RANK;
     msgPrep.typeMsg = 2;

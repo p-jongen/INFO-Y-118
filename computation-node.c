@@ -14,7 +14,8 @@
 /* Configuration */
 #define SEND_INTERVAL (8 * CLOCK_SECOND)
 
-static int parent_Add = -1;
+static node_t parent;
+parent.address = -1;
 static int rank = 99;
 
 /*---------------------------------------------------------------------------*/
@@ -53,17 +54,17 @@ void input_callback(const void *data, uint16_t len,
         if(typeMsgReceived == 2){   //received parent proposal
             LOG_INFO_("Computation receive parent proposal\n");
             parentRankReceived = (bufData/100)%100;
-            if (parent_Add == -1){
-                parent_Add = parentRankReceived;
-                parent_Add = src;
-                LOG_INFO_("New parent for Computation :  %d, rank = %d\n", parent_Add, rank);
-            }else{
-                if( parentRankReceived < parent_Add){
-                    parent_Add = (bufData/100)%100;
-                    parent_Add = src;
-                    LOG_INFO_("Better parent for Computation :  %d, rank = %d\n", parent_Add, rank);
+            if (parent.address == -1){
+                parent.address = src;
+                parent.rank = parentRankReceived;
+                LOG_INFO_("New parent for Computation :  %d, rank = %d\n", parent.address, parent.rank);
+            }else{  //déjà un parent
+                if( parentRankReceived < parent.rank){
+                    parent.rank = (bufData/100)%100;
+                    parent.address = src;
+                    LOG_INFO_("Better parent for Computation :  %d, rank = %d\n", parent.address, parent.rank);
                 }
-                LOG_INFO_("Old parent holded for Computation :  %d, rank = %d\n", parent_Add, rank);
+                LOG_INFO_("Old parent holded for Computation :  %d, rank = %d\n", parent.address, parent.rank);
             }
         }
     }
