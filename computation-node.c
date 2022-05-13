@@ -21,8 +21,10 @@ static int rank = 99;
 PROCESS(nullnet_example_process, "NullNet broadcast example");
 AUTOSTART_PROCESSES(&nullnet_example_process);
 
-void sendParentProposal(){
-    LOG_INFO_("Computation send parent proposal rank = %d", rank);
+void sendParentProposal(const linkaddr_t *src){
+    LOG_INFO_("Border : Send Unicast Parent Proposal to ");
+    LOG_INFO_LLADDR(src);
+    LOG_INFO_(" \n");
     broadcastMsg msgPrep;           //prepare info
     msgPrep.rank = rank;
     msgPrep.typeMsg = 2;
@@ -31,50 +33,57 @@ void sendParentProposal(){
     nullnet_buf = (uint8_t *)&header;
     nullnet_len = 2;
 
-    NETSTACK_NETWORK.output(NULL);
+    NETSTACK_NETWORK.output(src);
 }
 
 /*---------------------------------------------------------------------------*/
 void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
 {
-    LOG_INFO("Computation Receive\n");
+    
     int parentRankReceived = 0;
     if(len == sizeof(unsigned)) {
         unsigned bufData;
         memcpy(&bufData, data, 2);
         int typeMsgReceived = bufData/10000;
 
-        if(typeMsgReceived == 1){   //received parent request
-            LOG_INFO("Computation receive parent request\n");
-            sendParentProposal();
+        if(typeMsgReceived == 1){   //Received parent request
+            LOG_INFO_("Computation : Receive Parent Request\n");
+            sendParentProposal(src);
         }
 
         if(typeMsgReceived == 2){   //received parent proposal
-            LOG_INFO_("Computation receive parent proposal\n");
+            LOG_INFO_("Computation : Receive Parent Proposal\n");
             parentRankReceived = (bufData/100)%100;
             if (parent.hasParent ==0){
                 parent.address = *src;
                 parent.rank = parentRankReceived;
                 parent.hasParent = 1;
-                //LOG_INFO_("New parent for Computation :  %d, rank = %d\n", parent.address, parent.rank);
-                LOG_INFO_("New parent for Computation\n");
+                LOG_INFO_("New parent for Computation : ");
+                LOG_INFO_LLADDR(src);
+                LOG_INFO_(" (Parent rank = %d)\n", parent.rank);
             }else{  //déjà un parent
                 if( parentRankReceived < parent.rank){
                     parent.rank = (bufData/100)%100;
                     parent.address = *src;
-                    //LOG_INFO_("Better parent for Computation :  %d, rank = %d\n", parent.address, parent.rank);
-                    LOG_INFO_("Better parent for Computation\n");
+                    LOG_INFO_("Better parent for Computation :  ");
+                    LOG_INFO_LLADDR(src);
+                    LOG_INFO_(" (Parent rank = %d)\n", parent.rank);
                 }
-                //LOG_INFO_("Old parent holded for Computation :  %d, rank = %d\n", parent.address, parent.rank);
-                LOG_INFO_("Old parent holded for Computation\n");
+                else{
+                    LOG_INFO_("Old parent holded for Computation : ");
+                    LOG_INFO_LLADDR(src);
+                    LOG_INFO_(" (Parent rank = %d)\n", parent.rank);
+                }
             }
         }
-    }
+    }/*else{
+        LOG_INFO("Computation : Message received but error\n");
+    }*/
 }
 
 void requestParent(short rank){
-    LOG_INFO("Computation Sending Parent Request\n");
+    LOG_INFO_("Computation : Sending Parent Request\n");
     broadcastMsg msgPrep;                   //prepare info
     msgPrep.rank = rank;
     msgPrep.typeMsg = 1;
@@ -90,8 +99,6 @@ void requestParent(short rank){
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
     static struct etimer periodic_timer;
-    parent.address = linkaddr_null;
-    parent.hasParent =0;
 
     PROCESS_BEGIN();
 
@@ -99,15 +106,19 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
     
     etimer_set(&periodic_timer, SEND_INTERVAL);
     while(1) {
-        if(parent.hasParent==0){                 //if no parent, send request
-            LOG_INFO("Computation has no parent\n");
+        if(parent.hasParent == 0){                 //if no parent, send request
+            LOG_INFO_("Computation parent : None\n");
             requestParent(rank);
+        }else{
+            LOG_INFO_("Computation parent : Has a parent");
         }
 
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
 
         etimer_reset(&periodic_timer);
     }
+
+    //nullnet_set_input_callback(input_callback); 
 
     PROCESS_END();
 }
