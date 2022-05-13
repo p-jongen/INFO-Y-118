@@ -40,10 +40,8 @@ void input_callback(const void *data, uint16_t len,
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
     static struct etimer periodic_timer;
-    //uint8_t  border_header[64] = {[0 ... 63] = -1};
-    static short rank = 255;            //max rank car cherche un parent
+    static short rank = 99;            //max rank car cherche un parent
     static int parent_Add = -1;
-    //static unsigned count = 0;
 
     PROCESS_BEGIN();
     
@@ -57,15 +55,13 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
     etimer_set(&periodic_timer, SEND_INTERVAL);
     while(1) {
         if(parent_Add==-1){
+           /*
             broadcastMsg msgPrep;
             msgPrep.rank = rank;
             msgPrep.typeMsg = 3;
-
-            int header[8] = {[0 ... 7] = -1};
-            constructHeader(header, msgPrep);
-            for(int i = 0; i < 7; i++){
-                LOG_INFO("%d", header[i]);
-            }
+        */
+           
+            unsigned int header = 12345;    //max 65535
             nullnet_buf = (uint8_t *)&header;
             nullnet_len = 2;
 
