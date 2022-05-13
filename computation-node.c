@@ -53,9 +53,10 @@ void input_callback(const void *data, uint16_t len,
         if(typeMsgReceived == 2){   //received parent proposal
             LOG_INFO_("Computation receive parent proposal\n");
             parentRankReceived = (bufData/100)%100;
-            if (!linkaddr_cmp(&parent.address,&linkaddr_null)){
+            if (parent.hasParent ==0){
                 parent.address = *src;
                 parent.rank = parentRankReceived;
+                parent.hasParent = 1;
                 //LOG_INFO_("New parent for Computation :  %d, rank = %d\n", parent.address, parent.rank);
                 LOG_INFO_("New parent for Computation\n");
             }else{  //déjà un parent
@@ -90,14 +91,15 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
 {
     static struct etimer periodic_timer;
     parent.address = linkaddr_null;
-    
+    parent.hasParent =0;
+
     PROCESS_BEGIN();
 
     nullnet_set_input_callback(input_callback);         //LISTENER
     
     etimer_set(&periodic_timer, SEND_INTERVAL);
     while(1) {
-        if(!linkaddr_cmp(&parent.address,&linkaddr_null)){                 //if no parent, send request
+        if(parent.hasParent==0){                 //if no parent, send request
             LOG_INFO("Computation has no parent\n");
             requestParent(rank);
         }
