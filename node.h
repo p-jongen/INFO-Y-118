@@ -30,26 +30,10 @@ struct Message {
 };
 
 // ======== global functions =========
-void constructHeader(int header[64], broadcastMsg objet){
-    //add typeMessg dans Header
-    int typeMsgTab[2];
-    typeMsgTab[1] = (objet.typeMsg)/10;
-    typeMsgTab[0] = (objet.typeMsg%10);
-    for(int i = 0 ; i < lenTypeMsg ; i++){
-        header[i] = typeMsgTab[i];
-    }
-
-    printf("\n");
-    //add Rank dans Header
-    int rankTab[3];
-    rankTab[2] = (objet.rank)/100;
-    rankTab[1] = (objet.rank%100)/10;
-    rankTab[0] = (objet.rank%10);
-    for(int i = 0 ; i < lenRank ; i++){
-        header[i+lenTypeMsg] = rankTab[i];
-    }
-    /*for(int i = 0 ; i < 5 ; i++){
-        LOG_INFO("In ContructHeader : val %d = %d\n",i, header[i] );
-    }*/
-
+int buildHeader(broadcastMsg msgPrep){
+    int header = 0;
+    header += msgPrep.typeMsg*10000;    //1 = demande de parent; 2 = ?
+    header += msgPrep.rank*100;
+    //reste 2 derniers libres (*1 et *10)
+    return header;
 }
