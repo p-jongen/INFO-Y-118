@@ -42,7 +42,7 @@ void input_callback(const void *data, uint16_t len,
         int typeMsgReceived = bufData/10000;
         if(typeMsgReceived == 1){                           //receive parent request
             LOG_INFO("Border receive parent request \n");
-            //LOG_INFO_LLADDR(src);
+            LOG_INFO_LLADDR(src);
             sendParentProposal();
         }
     }

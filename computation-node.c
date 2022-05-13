@@ -45,22 +45,26 @@ void input_callback(const void *data, uint16_t len,
         memcpy(&bufData, data, 2);
         int typeMsgReceived = bufData/10000;
 
-        if(typeMsgReceived == 1){   //parent request
+        if(typeMsgReceived == 1){   //received parent request
             LOG_INFO("Computation receive parent request\n");
             sendParentProposal();
         }
 
-        if(typeMsgReceived == 2){   //parent proposal
+        if(typeMsgReceived == 2){   //received parent proposal
             LOG_INFO_("Computation receive parent proposal\n");
             parentRankReceived = (bufData/100)%100;
             if (parent_Add == -1){
                 parent_Add = parentRankReceived;
+                parent_Add = src;
+                LOG_INFO_("New parent for Computation :  %d, rank = %d\n", parent_Add, rank);
             }else{
                 if( parentRankReceived < parent_Add){
                     parent_Add = (bufData/100)%100;
+                    parent_Add = src;
+                    LOG_INFO_("Better parent for Computation :  %d, rank = %d\n", parent_Add, rank);
                 }
+                LOG_INFO_("Old parent holded for Computation :  %d, rank = %d\n", parent_Add, rank);
             }
-            LOG_INFO_("New rank parent for Computation = %d\n", parent_Add);
         }
     }
 }
