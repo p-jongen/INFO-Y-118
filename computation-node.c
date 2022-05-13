@@ -14,6 +14,10 @@
 /* Configuration */
 #define SEND_INTERVAL (8 * CLOCK_SECOND)
 
+#if MAC_CONF_WITH_TSCH
+#include "net/mac/tsch/tsch.h"
+static linkaddr_t coordinator_addr =  {{ 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }};
+#endif /* MAC_CONF_WITH_TSCH */
 
 /*---------------------------------------------------------------------------*/
 PROCESS(nullnet_example_process, "NullNet broadcast example");
@@ -32,22 +36,6 @@ void input_callback(const void *data, uint16_t len,
     }
 }
 
-void askForParentBroad(short rank){
-    broadcastMsg msgPrep;
-    msgPrep.rank = rank;
-    msgPrep.typeMsg = 2;
-
-    int header[64] = {[0 ... 63] = -1};
-    constructHeader(header, msgPrep);
-    nullnet_buf = (uint8_t *)&header;
-    nullnet_len = sizeof(header);
-    LOG_INFO("Sending request Parent\n");
-    LOG_INFO_("\n");
-    //nullnet_set_input_callback(input_callback);   LISTENER
-
-    NETSTACK_NETWORK.output(NULL);
-}
-
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
@@ -55,25 +43,43 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
     //uint8_t  border_header[64] = {[0 ... 63] = -1};
     static short rank = 255;            //max rank car cherche un parent
     static int parent_Add = -1;
+    //static unsigned count = 0;
 
     PROCESS_BEGIN();
+    
+    #if MAC_CONF_WITH_TSCH
+    tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
+    #endif /* MAC_CONF_WITH_TSCH */
 
-    /*
-    nullnet_buf = (uint8_t *)&count;
-    nullnet_len = sizeof(count);
-    nullnet_set_input_callback(input_callback);
-    */
+    //nullnet_len = sizeof(count);
+    //nullnet_set_input_callback(input_callback);
+    
     etimer_set(&periodic_timer, SEND_INTERVAL);
     while(1) {
         if(parent_Add==-1){
-            askForParentBroad(rank);
+            broadcastMsg msgPrep;
+            msgPrep.rank = rank;
+            msgPrep.typeMsg = 3;
+
+            int header[8] = {[0 ... 7] = -1};
+            constructHeader(header, msgPrep);
+            for(int i = 0; i < 7; i++){
+                LOG_INFO("%d", header[i]);
+            }
+            nullnet_buf = (uint8_t *)&header;
+            nullnet_len = 2;
+
+            LOG_INFO("Sending Parent");
+            LOG_INFO_LLADDR(NULL);
+            LOG_INFO_("\n");
+
+            NETSTACK_NETWORK.output(NULL);
         }else{
             LOG_INFO("Parent != -1\n");
             LOG_INFO_("\n");
         }
 
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-
 
         etimer_reset(&periodic_timer);
     }
