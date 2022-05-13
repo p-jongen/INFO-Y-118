@@ -14,11 +14,24 @@
 /* Configuration */
 #define SEND_INTERVAL (8 * CLOCK_SECOND)
 
+#define RANK 1
+
 
 /*---------------------------------------------------------------------------*/
 PROCESS(nullnet_example_process, "NullNet broadcast example");
 AUTOSTART_PROCESSES(&nullnet_example_process);
 
+void sendParentProposal(){
+    broadcastMsg msgPrep;
+    msgPrep.rank = RANK;
+    msgPrep.typeMsg = 2;
+
+    unsigned int header = buildHeader(msgPrep);    //max 65535  6 = type, 55 = rank, 35 = libre
+    nullnet_buf = (uint8_t *)&header;
+    nullnet_len = 2;
+    LOG_INFO_("Border send parent Proposal (rank = %d\n", msgPrep.rank);
+    NETSTACK_NETWORK.output(NULL);
+}
 /*---------------------------------------------------------------------------*/
 void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
@@ -26,11 +39,18 @@ void input_callback(const void *data, uint16_t len,
     if(len == sizeof(unsigned)) {
         unsigned bufData;
         memcpy(&bufData, data, 2);
-        LOG_INFO("Received %u from ", bufData);
-        LOG_INFO_LLADDR(src);  
-        LOG_INFO_("\n");
+        int typeMsgReceived = bufData/10000;
+        if(typeMsgReceived == 1){
+            LOG_INFO("Receive parent request (1) from ", bufData);
+            LOG_INFO_LLADDR(src);
+            LOG_INFO_("\n");
+
+            sendParentProposal();
+        }
     }
 }
+
+
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(nullnet_example_process, ev, data){
     static struct etimer periodic_timer;

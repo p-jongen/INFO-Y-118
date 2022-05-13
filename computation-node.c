@@ -19,6 +19,8 @@
 static linkaddr_t coordinator_addr =  {{ 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }};
 #endif /* MAC_CONF_WITH_TSCH */
 
+static int parent_Add = -1;
+
 /*---------------------------------------------------------------------------*/
 PROCESS(nullnet_example_process, "NullNet broadcast example");
 AUTOSTART_PROCESSES(&nullnet_example_process);
@@ -28,11 +30,33 @@ void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
 {
     if(len == sizeof(unsigned)) {
-        unsigned count;
-        memcpy(&count, data, sizeof(count));
-        LOG_INFO("Received %u from ", count);
-        LOG_INFO_LLADDR(src);
-        LOG_INFO_("\n");
+        unsigned bufData;
+        memcpy(&bufData, data, 2);
+        int typeMsgReceived = bufData/10000;
+        if(typeMsgReceived == 1){   //parent request
+            LOG_INFO("Receive parent request (1) from ", bufData);
+            LOG_INFO_LLADDR(src);
+            LOG_INFO_("\n");
+
+            sendParentProposal();
+        }
+        if(typeMsgReceived == 2){   //parent proposal
+            LOG_INFO("Receive parent proposal (2) from ", bufData);
+            LOG_INFO_LLADDR(src);
+            LOG_INFO_("\n");
+
+            LOG_INFO_("ID parent start = %d\n", parent_Add);
+            LOG_INFO_("ParentRankReceived = %d\n", parentRankReceived);
+            parentRankReceived = (bufData/100)%100);
+            if (parent_Add == -1){
+                parent_Add == parentRankReceived;
+            }else{
+                if( parentRankReceived < parent_Add){
+                    parent_Add = (bufData/100)%100);
+                }
+            }
+            LOG_INFO_("ID parent end = %d\n", parent_Add);
+        }
     }
 }
 
@@ -41,6 +65,7 @@ int buildHeader(broadcastMsg msgPrep){
     header += msgPrep.typeMsg*10000;    //1 = demande de parent; 2 = ?
     header += msgPrep.rank*100;
     //reste 2 derniers libres (*1 et *10)
+    return header;
 }
 
 void requestParent(short rank){
@@ -64,7 +89,7 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
 {
     static struct etimer periodic_timer;
     static short rank = 99;            //max rank car cherche un parent
-    static int parent_Add = -1;
+
 
     PROCESS_BEGIN();
     
