@@ -14,12 +14,7 @@
 /* Configuration */
 #define SEND_INTERVAL (8 * CLOCK_SECOND)
 
-#if MAC_CONF_WITH_TSCH
-#include "net/mac/tsch/tsch.h"
-static linkaddr_t coordinator_addr =  {{ 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }};
-#endif /* MAC_CONF_WITH_TSCH */
-
-static int parent_Add = -1;
+static node_t parent;
 static int rank = 99;
 
 /*---------------------------------------------------------------------------*/
@@ -27,14 +22,15 @@ PROCESS(nullnet_example_process, "NullNet broadcast example");
 AUTOSTART_PROCESSES(&nullnet_example_process);
 
 void sendParentProposal(){
-    broadcastMsg msgPrep;
+    LOG_INFO_("Computation send parent proposal rank = %d", rank);
+    broadcastMsg msgPrep;           //prepare info
     msgPrep.rank = rank;
     msgPrep.typeMsg = 2;
 
-    unsigned int header = buildHeader(msgPrep);    //max 65535  6 = type, 55 = rank, 35 = libre
+    unsigned int header = buildHeader(msgPrep);    //build header (node.h)
     nullnet_buf = (uint8_t *)&header;
     nullnet_len = 2;
-    LOG_INFO_("Border send parent Proposal (rank = %d\n", msgPrep.rank);
+
     NETSTACK_NETWORK.output(NULL);
 }
 
@@ -42,46 +38,49 @@ void sendParentProposal(){
 void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
 {
+    LOG_INFO("Computation Receive\n");
     int parentRankReceived = 0;
     if(len == sizeof(unsigned)) {
         unsigned bufData;
         memcpy(&bufData, data, 2);
         int typeMsgReceived = bufData/10000;
-        if(typeMsgReceived == 1){   //parent request
-            LOG_INFO("Receive parent request (1) from ");
-            LOG_INFO_LLADDR(src);
-            LOG_INFO_("\n");
 
+        if(typeMsgReceived == 1){   //received parent request
+            LOG_INFO("Computation receive parent request\n");
             sendParentProposal();
         }
-        if(typeMsgReceived == 2){   //parent proposal
+
+        if(typeMsgReceived == 2){   //received parent proposal
+            LOG_INFO_("Computation receive parent proposal\n");
             parentRankReceived = (bufData/100)%100;
-            LOG_INFO_("ID parent start = %d\n", parent_Add);
-            LOG_INFO_("ParentRankReceived = %d\n", parentRankReceived);
-            if (parent_Add == -1){
-                parent_Add = parentRankReceived;
-            }else{
-                if( parentRankReceived < parent_Add){
-                    parent_Add = (bufData/100)%100;
+            if (!linkaddr_cmp(&parent.address,&linkaddr_null)){
+                parent.address = *src;
+                parent.rank = parentRankReceived;
+                //LOG_INFO_("New parent for Computation :  %d, rank = %d\n", parent.address, parent.rank);
+                LOG_INFO_("New parent for Computation\n");
+            }else{  //déjà un parent
+                if( parentRankReceived < parent.rank){
+                    parent.rank = (bufData/100)%100;
+                    parent.address = *src;
+                    //LOG_INFO_("Better parent for Computation :  %d, rank = %d\n", parent.address, parent.rank);
+                    LOG_INFO_("Better parent for Computation\n");
                 }
+                //LOG_INFO_("Old parent holded for Computation :  %d, rank = %d\n", parent.address, parent.rank);
+                LOG_INFO_("Old parent holded for Computation\n");
             }
-            LOG_INFO_("ID parent end = %d\n", parent_Add);
         }
     }
 }
 
 void requestParent(short rank){
-    broadcastMsg msgPrep;
+    LOG_INFO("Computation Sending Parent Request\n");
+    broadcastMsg msgPrep;                   //prepare info
     msgPrep.rank = rank;
     msgPrep.typeMsg = 1;
 
-    unsigned int header = buildHeader(msgPrep);    //max 65535
+    unsigned int header = buildHeader(msgPrep);    //(in node.h) -> build header TypeMsg(1)-Rank(23)-vide(45) = 12345
     nullnet_buf = (uint8_t *)&header;
     nullnet_len = 2;
-
-    LOG_INFO("Sending Parent");
-    LOG_INFO_LLADDR(NULL);
-    LOG_INFO_("\n");
 
     NETSTACK_NETWORK.output(NULL);
 }
@@ -90,22 +89,17 @@ void requestParent(short rank){
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
     static struct etimer periodic_timer;
-
-    PROCESS_BEGIN();
+    parent.address = linkaddr_null;
     
-    #if MAC_CONF_WITH_TSCH
-    tsch_set_coordinator(linkaddr_cmp(&coordinator_addr, &linkaddr_node_addr));
-    #endif /* MAC_CONF_WITH_TSCH */
+    PROCESS_BEGIN();
 
-    //nullnet_set_input_callback(input_callback);
+    nullnet_set_input_callback(input_callback);         //LISTENER
     
     etimer_set(&periodic_timer, SEND_INTERVAL);
     while(1) {
-        if(parent_Add==-1){
+        if(!linkaddr_cmp(&parent.address,&linkaddr_null)){                 //if no parent, send request
+            LOG_INFO("Computation has no parent\n");
             requestParent(rank);
-        }else{
-            LOG_INFO("Parent != -1\n");
-            LOG_INFO_("\n");
         }
 
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));

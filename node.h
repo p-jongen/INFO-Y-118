@@ -30,9 +30,9 @@ struct Message {
 };
 
 // ======== global functions =========
-int buildHeader(broadcastMsg msgPrep){
+int buildHeader(broadcastMsg msgPrep){          //max 65535
     int header = 0;
-    header += msgPrep.typeMsg*10000;    //1 = demande de parent; 2 = ?
+    header += msgPrep.typeMsg*10000;    //1 = demande de parent; 2 = envoi parent proposal
     header += msgPrep.rank*100;
     //reste 2 derniers libres (*1 et *10)
     return header;
