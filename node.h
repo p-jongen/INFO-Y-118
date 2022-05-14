@@ -26,6 +26,7 @@ typedef struct Message broadcastMsg;
 struct Message {
     uint8_t rank;
     int typeMsg;
+    int twoLast;
     // 1 = Broadcas_Information_from_Border (init Network, to contact Computation)
     // 2 = Demande de parent
 };
@@ -35,6 +36,9 @@ int buildHeader(broadcastMsg msgPrep){          //max 65535
     int header = 0;
     header += msgPrep.typeMsg*10000;    //1 = demande de parent; 2 = envoi parent proposal
     header += msgPrep.rank*100;
+    if(msgPrep.typeMsg==3){
+        header+=msgPrep.twoLast;
+    }
     //reste 2 derniers libres (*1 et *10)
     return header;
 }

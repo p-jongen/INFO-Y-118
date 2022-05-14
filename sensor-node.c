@@ -86,12 +86,25 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
             }
         }
         if(typeMsgReceived == 3){
-
+            //TODO recept la valeur des 2 derniers chiffres du header. Si c'est un computation, faire le calcul et renvoyer la réponse vers sensor qui a envoyé ce paquet. Si c'est un sensor, forward vers parent
         }
     }
 }
 
-void requestParent(short rank){
+void sendValToParent(int val) {
+    broadcastMsg msgPrep;
+    msgPrep.rank = rank;
+    msgPrep.typeMsg = 3;
+    msgPrep.twoLast = val;
+
+    unsigned int header = buildHeader(msgPrep);
+    nullnet_buf = (uint8_t *)&header;
+    nullnet_len = 2;
+
+    NETSTACK_NETWORK.output(&parent.address);
+}
+
+    void requestParent(short rank){
     LOG_INFO_("Sensor : Sending Parent Request\n");
     broadcastMsg msgPrep;                   //prepare info
     msgPrep.rank = rank;
@@ -128,6 +141,7 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
         if(parent.hasParent == 1){                 //if no parent, send request
             int r = abs(rand() % 100);
             LOG_INFO_("Value of sensor : %d\n", r);
+            sendValToParent(r);
             etimer_set(&periodic_timer_valueSensor, SEND_INTERVAL_VALUE);
             PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_valueSensor));
             etimer_reset(&periodic_timer_valueSensor);
