@@ -94,9 +94,24 @@ void requestParent(short rank){
     msgPrep.rank = rank;
     msgPrep.typeMsg = 1;
 
-    unsigned int header = buildHeader(msgPrep);    //(in node.h) -> build header TypeMsg(1)-Rank(23)-vide(45) = 12345
+    uint8_t payload[64] = { 0 };
+    payload[0] = 1;
+    payload[1] = 5;
+    payload[2] = 9;
+    payload[3] = 9;
+    payload[4] = 9;
+    payload[5] = 9;
+    payload[6] = 9;
+    payload[7] = 9;
+    payload[8] = 9;
+
+    nullnet_buf = payload; /* Point NullNet buffer to 'payload' */
+    nullnet_len = 2;
+    /*
+     * unsigned int header = buildHeader(msgPrep);    //(in node.h) -> build header TypeMsg(1)-Rank(23)-vide(45) = 12345
     nullnet_buf = (uint8_t *)&header;
     nullnet_len = 2;
+     */
 
     NETSTACK_NETWORK.output(NULL);
 }

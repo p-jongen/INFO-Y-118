@@ -26,6 +26,8 @@ static linkaddr_t coordinator_addr =  {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0
 
 #define RANK 1              // non variable, car border
 
+int tableRoutage[][];
+
 
 /*---------------------------------------------------------------------------*/
 PROCESS(nullnet_example_process, "NullNet broadcast example");
@@ -48,9 +50,36 @@ void sendParentProposal(const linkaddr_t *src){
 void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
 {
+
+    LOG_INFO_(data);
+
+    unsigned bufData;
+    memcpy(&bufData, data, 2);
+
+    LOG_INFO_(bufData);
+
+    LOG_INFO_("%d", bufData[0]);
+    LOG_INFO_("%u", bufData[0]);
+    LOG_INFO_("%d", bufData[2]);
+    LOG_INFO_("%u", bufData[2]);
+
+
+    uint8_t payload[64] = bufData;
+    uint8_t payload2[64] = data;
+
+    LOG_INFO_("%u", bufData[0]);
+    LOG_INFO_("%u", bufData[2]);
+    LOG_INFO_("%d", bufData[2]);
+    LOG_INFO_("%u", data[2]);
+    LOG_INFO_("%d", data[2]);
+
+    /*
     if(len == sizeof(unsigned)) {
         unsigned bufData;
         memcpy(&bufData, data, 2);
+
+
+
         int typeMsgReceived = bufData/10000;
         if(typeMsgReceived == 1){                           //receive parent request
             LOG_INFO_("Border : Receive Parent Request from ");
@@ -58,6 +87,13 @@ void input_callback(const void *data, uint16_t len,
             LOG_INFO_(" \n");
             sendParentProposal(src);
         }
+        if(typeMsgReceived == 4){                           //infoRoutage
+            LOG_INFO_("Border : Receive Parent Request from ");
+            LOG_PRINT_LLADDR(src);
+            LOG_INFO_(" \n");
+            sendParentProposal(src);
+        }
+         */
     }
 }
 
