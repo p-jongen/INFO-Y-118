@@ -14,7 +14,7 @@
 #define lenHeader 64    // length msg broad/uni-casted
 
 // ========= STRUCTURES ===========
-typedef struct Node node_t;
+static typedef struct Node node_t;
 struct Node {
     linkaddr_t address;
     uint8_t rank;
@@ -22,13 +22,22 @@ struct Node {
     int hasParent;
 };
 
-typedef struct Message broadcastMsg;
+static typedef struct Record routingRecord;
+struct Record {
+    linkaddr_t addDest;
+    linkaddr_t nextHop;
+    int ttl;
+};
+
+static typedef struct Message broadcastMsg;
 struct Message {
     uint8_t rank;
+    linkaddr_t addSrc;
+    linkaddr_t addDest;
     int typeMsg;
-    int twoLast;
-    // 1 = Broadcas_Information_from_Border (init Network, to contact Computation)
-    // 2 = Demande de parent
+    int sensorValue;
+    // 1 = Parent request
+    // 2 = Parent proposal
 };
 
 // ======== global functions =========
