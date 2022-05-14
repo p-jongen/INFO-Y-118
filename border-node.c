@@ -71,12 +71,12 @@ PROCESS_THREAD(nullnet_example_process, ev, data){
     nullnet_set_input_callback(input_callback); //LISTENER packet
 
     etimer_set(&periodic_timer, SEND_INTERVAL);
-    while(1) {
+    //while(1) {
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
 
         NETSTACK_NETWORK.output(NULL);
         etimer_reset(&periodic_timer);
-    }
+    //}
 
     PROCESS_END();
 }

@@ -12,10 +12,12 @@
 #define LOG_LEVEL LOG_LEVEL_INFO
 
 /* Configuration */
-#define SEND_INTERVAL (8 * CLOCK_SECOND)
+#define SEND_INTERVAL (1 * CLOCK_SECOND)
 
 static node_t parent;
 static int rank = 99;
+
+static int countTimer = 0;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(nullnet_example_process, "NullNet broadcast example");
@@ -109,17 +111,21 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
     nullnet_set_input_callback(input_callback);         //LISTENER
     
     etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
+
     while(1) {
-        if(parent.hasParent == 0){                 //if no parent, send request
-            etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
+        //parent
+        etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
+        countTimer++;
+        if (countTimer >= 99960){ //éviter roverflow
+            countTimer=0;
+        }
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_parentRequest));
+        etimer_reset(&periodic_timer_parentRequest);
+
+        if(parent.hasParent == 0 & countTimer%8 == 0){                 //if no parent, send request
             LOG_INFO_("Computation parent : None\n");
             requestParent(rank);
-            PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_parentRequest));
-            etimer_reset(&periodic_timer_parentRequest);
         }
     }
-
-    //nullnet_set_input_callback(input_callback); 
-
     PROCESS_END();
 }

@@ -14,12 +14,12 @@
 #define LOG_LEVEL LOG_LEVEL_INFO
 
 /* Configuration */
-#define SEND_INTERVAL (8 * CLOCK_SECOND)
-#define SEND_INTERVAL_VALUE (60 * CLOCK_SECOND)
-
+#define SEND_INTERVAL (1 * CLOCK_SECOND)
 
 static node_t parent;
 static int rank = 99;
+
+static int countTimer = 0;
 
 
 /*---------------------------------------------------------------------------*/
@@ -87,7 +87,7 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
         }
         if(typeMsgReceived == 3){
             //TODO recept la valeur des 2 derniers chiffres du header. Si c'est un computation, faire le calcul et renvoyer la réponse vers sensor qui a envoyé ce paquet. Si c'est un sensor, forward vers parent
-
+            LOG_INFO_("type msg = 3");
         }
     }
 }
@@ -105,7 +105,7 @@ void sendValToParent(int val) {
     NETSTACK_NETWORK.output(&parent.address);
 }
 
-    void requestParent(short rank){
+void requestParent(short rank){
     LOG_INFO_("Sensor : Sending Parent Request\n");
     broadcastMsg msgPrep;                   //prepare info
     msgPrep.rank = rank;
@@ -121,38 +121,32 @@ void sendValToParent(int val) {
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
-    static struct etimer periodic_timer_parentRequest;
-    static struct etimer periodic_timer_valueSensor;
+    static struct etimer periodic_timer;
 
     PROCESS_BEGIN();
 
     nullnet_set_input_callback(input_callback);         //LISTENER
 
-
     while(1) {
         //parent
-        if(parent.hasParent == 0){                 //if no parent, send request
-            etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
-            LOG_INFO_("Sensor parent : None\n");
+        etimer_set(&periodic_timer, SEND_INTERVAL);
+        countTimer++;
+        if (countTimer >= 99960){ //éviter roverflow
+            countTimer=0;
+        }
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+        etimer_reset(&periodic_timer);
+
+        if(parent.hasParent == 0 && countTimer%8 == 0){                 //if no parent, send request
+            LOG_INFO_("Computation parent : None\n");
             requestParent(rank);
-            PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_parentRequest));
-            etimer_reset(&periodic_timer_parentRequest);
         }
 
-        if(parent.hasParent == 1){                 //if no parent, send request
+        if(parent.hasParent == 1 && countTimer%60 == 0){                 //if no parent, send request
             int r = abs(rand() % 100);
             LOG_INFO_("Value of sensor : %d\n", r);
             sendValToParent(r);
-            etimer_set(&periodic_timer_valueSensor, SEND_INTERVAL_VALUE);
-            PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_valueSensor));
-            etimer_reset(&periodic_timer_valueSensor);
         }
-    
-        
-
     }
-
-    //nullnet_set_input_callback(input_callback);
-
     PROCESS_END();
 }
