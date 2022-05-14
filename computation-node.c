@@ -172,7 +172,9 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
     msgPrep.addSrc = linkaddr_node_addr;
     nullnet_buf = (uint8_t * ) &msgPrep;
     nullnet_len = sizeof(struct Message);
-    NETSTACK_NETWORK.output(NULL);
+    LOG_INFO_("BEFORE NETSTACK\n");
+
+NETSTACK_NETWORK.output(NULL);
 LOG_INFO_("AFTER INIT\n");
 
     //LISTENER
