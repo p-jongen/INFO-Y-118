@@ -90,23 +90,23 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
 
 void requestParent(short rank){
     LOG_INFO_("Computation : Sending Parent Request\n");
-    broadcastMsg msgPrep;                   //prepare info
-    msgPrep.rank = rank;
-    msgPrep.typeMsg = 1;
+    //broadcastMsg msgPrep;                   //prepare info
+    //msgPrep.rank = rank;
+    //msgPrep.typeMsg = 1;
 
     uint8_t payload[64] = { 0 };
     payload[0] = 1;
-    payload[1] = 5;
-    payload[2] = 9;
-    payload[3] = 9;
-    payload[4] = 9;
-    payload[5] = 9;
-    payload[6] = 9;
-    payload[7] = 9;
+    payload[1] = 2;
+    payload[2] = 3;
+    payload[3] = 4;
+    payload[4] = 5;
+    payload[5] = 6;
+    payload[6] = 7;
+    payload[7] = 8;
     payload[8] = 9;
 
     nullnet_buf = payload; /* Point NullNet buffer to 'payload' */
-    nullnet_len = 2;
+    nullnet_len = 9;
     /*
      * unsigned int header = buildHeader(msgPrep);    //(in node.h) -> build header TypeMsg(1)-Rank(23)-vide(45) = 12345
     nullnet_buf = (uint8_t *)&header;
@@ -137,7 +137,7 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_parentRequest));
         etimer_reset(&periodic_timer_parentRequest);
 
-        if(parent.hasParent == 0 & countTimer%8 == 0){                 //if no parent, send request
+        if(parent.hasParent == 0 && countTimer%8 == 0){                 //if no parent, send request
             LOG_INFO_("Computation parent : None\n");
             requestParent(rank);
         }

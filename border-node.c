@@ -26,7 +26,7 @@ static linkaddr_t coordinator_addr =  {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0
 
 #define RANK 1              // non variable, car border
 
-int tableRoutage[][];
+//int tableRoutage[][];
 
 
 /*---------------------------------------------------------------------------*/
@@ -51,27 +51,17 @@ void input_callback(const void *data, uint16_t len,
                     const linkaddr_t *src, const linkaddr_t *dest)
 {
 
-    LOG_INFO_(data);
+    const uint8_t* payload2 = data;
 
-    unsigned bufData;
-    memcpy(&bufData, data, 2);
-
-    LOG_INFO_(bufData);
-
-    LOG_INFO_("%d", bufData[0]);
-    LOG_INFO_("%u", bufData[0]);
-    LOG_INFO_("%d", bufData[2]);
-    LOG_INFO_("%u", bufData[2]);
-
-
-    uint8_t payload[64] = bufData;
-    uint8_t payload2[64] = data;
-
-    LOG_INFO_("%u", bufData[0]);
-    LOG_INFO_("%u", bufData[2]);
-    LOG_INFO_("%d", bufData[2]);
-    LOG_INFO_("%u", data[2]);
-    LOG_INFO_("%d", data[2]);
+    LOG_INFO_("AAAAAAAA0=%u\n", payload2[0]);
+    LOG_INFO_("AAAAAAAA1=%u\n", payload2[1]);
+    LOG_INFO_("AAAAAAAA2=%u\n", payload2[2]);
+    LOG_INFO_("AAAAAAAA3=%u\n", payload2[3]);
+    LOG_INFO_("AAAAAAAA4=%u\n", payload2[4]);
+    LOG_INFO_("AAAAAAAA5=%u\n", payload2[5]);
+    LOG_INFO_("AAAAAAAA6=%u\n", payload2[6]);
+    LOG_INFO_("AAAAAAAA7=%u\n", payload2[7]);
+    LOG_INFO_("AAAAAAAA8=%u\n", payload2[8]);
 
     /*
     if(len == sizeof(unsigned)) {
@@ -93,8 +83,8 @@ void input_callback(const void *data, uint16_t len,
             LOG_INFO_(" \n");
             sendParentProposal(src);
         }
-         */
-    }
+         
+    }*/
 }
 
 
