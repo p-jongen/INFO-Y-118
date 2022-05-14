@@ -14,7 +14,7 @@
 #define lenHeader 64    // length msg broad/uni-casted
 
 // ========= STRUCTURES ===========
-static typedef struct Node node_t;
+typedef struct Node node_t;
 struct Node {
     linkaddr_t address;
     uint8_t rank;
@@ -22,14 +22,14 @@ struct Node {
     int hasParent;
 };
 
-static typedef struct Record routingRecord;
+typedef struct Record routingRecord;
 struct Record {
     linkaddr_t addDest;
     linkaddr_t nextHop;
     int ttl;
 };
 
-static typedef struct Message broadcastMsg;
+typedef struct Message broadcastMsg;
 struct Message {
     uint8_t rank;
     linkaddr_t addSrc;
@@ -39,15 +39,3 @@ struct Message {
     // 1 = Parent request
     // 2 = Parent proposal
 };
-
-// ======== global functions =========
-int buildHeader(broadcastMsg msgPrep){          //max 65535
-    int header = 0;
-    header += msgPrep.typeMsg*10000;    //1 = demande de parent; 2 = envoi parent proposal
-    header += msgPrep.rank*100;
-    if(msgPrep.typeMsg==3){
-        header+=msgPrep.twoLast;
-    }
-    //reste 2 derniers libres (*1 et *10)
-    return header;
-}

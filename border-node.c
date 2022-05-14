@@ -26,7 +26,12 @@ static linkaddr_t coordinator_addr =  {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0
 
 #define RANK 1              // non variable, car border
 
-static routingRecord routingTable[];    //every entry : addSrc, NextHop, TTL
+static routingRecord routingTable[50];    //every entry : addSrc, NextHop, TTL
+routingRecord defaultRR;
+defaultRR.ttl = -1;
+for (int i = 0 ; i < sizeOf(routingTable) ; i++){
+    routingTable[i] = defaultRR;
+}
 
 
 /*---------------------------------------------------------------------------*/
@@ -54,9 +59,11 @@ linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
     linkaddr_t nextHopForDest;
     int haveFound = 0;
     for(int i = 0 ; i < sizeof(routingTable) ; i++){
-        if (!linkaddr_cmp(routingTable[i].addDest, checkAddDest)){
-            nextHopForDest = routingTable[i].nextHop;
-            haveFound = 1;
+        if(routingTable[i].ttl != -1) {
+            if (!linkaddr_cmp(routingTable[i].addDest, checkAddDest)) {
+                nextHopForDest = routingTable[i].nextHop;
+                haveFound = 1;
+            }
         }
     }
     if (!haveFound) {
@@ -67,14 +74,18 @@ linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
 
 void updateRoutingTable(routingRecord receivedRR){
     int isInTable = 0;
+    int indexLibre = 0;
     for(int i = 0 ; i < sizeof(routingTable) ; i++){
-        if (!linkaddr_cmp(routingTable[i].addDest, receivedRR.addDest)){
-            isInTable = 1;
-            routingTable[i].ttl = 10;
+        if (routingTable[i].ttl != -1) {
+            if (!linkaddr_cmp(routingTable[i].addDest, receivedRR.addDest)) {
+                isInTable = 1;
+                routingTable[i].ttl = 10;
+            }
+            indexLibre++;
         }
     }
     if(isInTable == 0){                     //alors, add à la routing table
-        routingTable[sizeof(routingTable)+1] = receivedRR;
+        routingTable[indexLibre] = receivedRR;
     }
 }
 
