@@ -15,11 +15,7 @@
 #define SEND_INTERVAL (1 * CLOCK_SECOND)
 
 static routingRecord routingTable[50];    //every entry : addSrc, NextHop, TTL
-routingRecord defaultRR;
-defaultRR.ttl = -1;
-for (int i = 0 ; i < sizeOf(routingTable) ; i++){
-    routingTable[i] = defaultRR;
-}
+static int init_var = 0;
 static node_t parent;
 static int rank = 99;
 
@@ -29,9 +25,26 @@ static int countTimer = 0;
 PROCESS(nullnet_example_process, "NullNet broadcast example");
 AUTOSTART_PROCESSES(&nullnet_example_process);
 
+linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
+    linkaddr_t nextHopForDest;
+    int haveFound = 0;
+    for(int i = 0 ; i < sizeof(routingTable) ; i++){
+        if(routingTable[i].ttl != -1) {
+            if (!linkaddr_cmp(&routingTable[i].addDest, &checkAddDest)) {
+                nextHopForDest = routingTable[i].nextHop;
+                haveFound = 1;
+            }
+        }
+    }
+    if (!haveFound) {
+        LOG_INFO_("ADD NOT FOUND IN TABLE");
+    }
+    return nextHopForDest;
+}
+
 void sendParentProposal(broadcastMsg receivedMsg){
     LOG_INFO_("Computation : Send Unicast Parent Proposal to ");
-    LOG_INFO_LLADDR(receivedMsg.addSrc);
+    LOG_INFO_LLADDR(&receivedMsg.addSrc);
     LOG_INFO_(" \n");
 
     broadcastMsg msgPrep;           //prepare info
@@ -43,24 +56,7 @@ void sendParentProposal(broadcastMsg receivedMsg){
     memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
     nullnet_len = sizeof(struct Message);
     linkaddr_t dest = routingNextHopForDest(receivedMsg.addSrc);
-    NETSTACK_NETWORK.output(dest);
-}
-
-linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
-    linkaddr_t nextHopForDest;
-    int haveFound = 0;
-    for(int i = 0 ; i < sizeof(routingTable) ; i++){
-        if(routingTable[i].ttl != -1) {
-            if (!linkaddr_cmp(routingTable[i].addDest, checkAddDest)) {
-                nextHopForDest = routingTable[i].nextHop;
-                haveFound = 1;
-            }
-        }
-    }
-    if (!haveFound) {
-        LOG_INFO_("ADD NOT FOUND IN TABLE");
-    }
-    return nextHopForDest;
+    NETSTACK_NETWORK.output(&dest);
 }
 
 void addParent(broadcastMsg receivedMsg){  //add or update info about his parent
@@ -75,17 +71,17 @@ void parentProposalComparison(broadcastMsg receivedMsg){
         addParent(receivedMsg);
 
         LOG_INFO_("New parent for Computation : ");
-        LOG_INFO_LLADDR(receivedMsg.addSrc);
+        LOG_INFO_LLADDR(&receivedMsg.addSrc);
         LOG_INFO_(" (Parent rank = %d)\n", parent.rank);
     }else{  //déjà un parent
-        if( receivedMsg.rank < parent.rank){
-            addParent(receivedMsg.addSrc, receivedMsg.rank);
+        if(receivedMsg.rank < parent.rank){
+            addParent(receivedMsg);
 
             LOG_INFO_("Better parent for Computation :  ");
-            LOG_INFO_LLADDR(receivedMsg.addSrc);
+            LOG_INFO_LLADDR(&receivedMsg.addSrc);
             LOG_INFO_(" (Parent rank = %d)\n", parent.rank);
         }
-        else if(receivedMsg.rank = parent.rank){
+        else if(receivedMsg.rank == parent.rank){
             //TODO verif l'instensité du signal
         }
         else{
@@ -99,7 +95,7 @@ void updateRoutingTable(routingRecord receivedRR){
     int indexLibre = 0;
     for(int i = 0 ; i < sizeof(routingTable) ; i++){
         if (routingTable[i].ttl != -1) {
-            if (!linkaddr_cmp(routingTable[i].addDest, receivedRR.addDest)) {
+            if (!linkaddr_cmp(&routingTable[i].addDest, &receivedRR.addDest)) {
                 isInTable = 1;
                 routingTable[i].ttl = 10;
             }
@@ -113,25 +109,23 @@ void updateRoutingTable(routingRecord receivedRR){
 
 /*---------------------------------------------------------------------------*/
 void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const linkaddr_t *dest){
-    int parentRankReceived = 0;
-
     if(len == sizeof(struct Message)) {
         broadcastMsg receivedMsg;
         memcpy(&receivedMsg, data, sizeof(struct Message));
 
         routingRecord receivedRR;
         receivedRR.addDest = receivedMsg.addSrc;
-        receivedRR.nextHop = src;
+        receivedRR.nextHop = *src;
         receivedRR.ttl = 10;
         updateRoutingTable(receivedRR);
 
         if(receivedMsg.typeMsg == 1){                           //receive parent request
             LOG_INFO_("Computation : Receive Parent Request from ");
-            LOG_PRINT_LLADDR(receivedMsg.addSrc);
+            LOG_PRINT_LLADDR(&receivedMsg.addSrc);
             LOG_INFO_(" \n");
             //TODO : if place enough to get one more children
             if (parent.hasParent){
-                sendParentProposal(receivedMsg));
+                sendParentProposal(receivedMsg);
             }
         }
 
@@ -139,7 +133,7 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
             LOG_INFO_("Computation : Receive Parent Proposal\n");
             parentProposalComparison(receivedMsg);
         }
-        if(typeMsgReceived == 3){
+        if(receivedMsg.typeMsg == 3){
             LOG_INFO_("Comparison : type msg = 3\n");
         }
     }
@@ -160,20 +154,32 @@ void requestParentBroadcast(){
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
     static struct etimer periodic_timer_parentRequest;
+    broadcastMsg msg;
 
     PROCESS_BEGIN();
+    if(!init_var){
+        LOG_INFO_("Je passe dans le THREAD : 1\n");
+        routingRecord defaultRR;
+        defaultRR.ttl = -1;
+        for (int i = 0 ; i < sizeof(routingTable) ; i++){
+            routingTable[i] = defaultRR;
+        }
+        init_var = 1;
+    }
 
     // Initialize NullNet
-    nullnet_buf = (uint8_t * ) &broadcastMsg;
+    msg.typeMsg = 3;
+
+    nullnet_buf = (uint8_t * ) &msg;
     nullnet_len = sizeof(struct Message);
-
     nullnet_set_input_callback(input_callback);         //LISTENER
-
+    
     //INITIALIZER
     NETSTACK_NETWORK.output(NULL);
 
     while(1) {
         //TIMER
+        LOG_INFO_("Je passe dans le THREAD : 3\n");
         etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
         countTimer++;
         if (countTimer >= 99960){ //éviter roverflow

@@ -21,46 +21,27 @@ static linkaddr_t dest_addr =         {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0
 static linkaddr_t coordinator_addr =  {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }};
 #endif /* MAC_CONF_WITH_TSCH */
 
+
 /* Configuration */
 #define SEND_INTERVAL (8 * CLOCK_SECOND)
 
 #define RANK 1              // non variable, car border
 
 static routingRecord routingTable[50];    //every entry : addSrc, NextHop, TTL
-routingRecord defaultRR;
-defaultRR.ttl = -1;
-for (int i = 0 ; i < sizeOf(routingTable) ; i++){
-    routingTable[i] = defaultRR;
-}
+
+int init_var = 0;
 
 
 /*---------------------------------------------------------------------------*/
 PROCESS(nullnet_example_process, "NullNet broadcast example");
 AUTOSTART_PROCESSES(&nullnet_example_process);
 
-void sendParentProposal(broadcastMsg receivedMsg){
-    LOG_INFO_("Border : Send Unicast Parent Proposal to ");
-    LOG_INFO_LLADDR(receivedMsg.addSrc);
-    LOG_INFO_(" \n");
-
-    broadcastMsg msgPrep;           //prepare info
-    msgPrep.addSrc = linkaddr_node_addr;
-    msgPrep.addDest = receivedMsg.addSrc;
-    msgPrep.rank = RANK;
-    msgPrep.typeMsg = 2;
-
-    memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
-    nullnet_len = sizeof(struct Message);
-    linkaddr_t dest = routingNextHopForDest(receivedMsg.addSrc);
-    NETSTACK_NETWORK.output(dest);
-}
-
-linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
+linkaddr_t routingNextHopForDest(linkaddr_t checkAddDest){
     linkaddr_t nextHopForDest;
     int haveFound = 0;
     for(int i = 0 ; i < sizeof(routingTable) ; i++){
         if(routingTable[i].ttl != -1) {
-            if (!linkaddr_cmp(routingTable[i].addDest, checkAddDest)) {
+            if (!linkaddr_cmp(&routingTable[i].addDest, &checkAddDest)) {
                 nextHopForDest = routingTable[i].nextHop;
                 haveFound = 1;
             }
@@ -72,12 +53,29 @@ linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
     return nextHopForDest;
 }
 
+void sendParentProposal(broadcastMsg receivedMsg){
+    LOG_INFO_("Border : Send Unicast Parent Proposal to ");
+    LOG_INFO_LLADDR(&receivedMsg.addSrc);
+    LOG_INFO_(" \n");
+
+    broadcastMsg msgPrep;           //prepare info
+    msgPrep.addSrc = linkaddr_node_addr;
+    msgPrep.addDest = receivedMsg.addSrc;
+    msgPrep.rank = RANK;
+    msgPrep.typeMsg = 2;
+
+    memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
+    nullnet_len = sizeof(struct Message);
+    linkaddr_t dest = routingNextHopForDest(receivedMsg.addSrc);
+    NETSTACK_NETWORK.output(&dest);
+}
+
 void updateRoutingTable(routingRecord receivedRR){
     int isInTable = 0;
     int indexLibre = 0;
     for(int i = 0 ; i < sizeof(routingTable) ; i++){
         if (routingTable[i].ttl != -1) {
-            if (!linkaddr_cmp(routingTable[i].addDest, receivedRR.addDest)) {
+            if (!linkaddr_cmp(&routingTable[i].addDest, &receivedRR.addDest)) {
                 isInTable = 1;
                 routingTable[i].ttl = 10;
             }
@@ -99,28 +97,27 @@ void input_callback(const void *data, uint16_t len,
 
         routingRecord receivedRR;
         receivedRR.addDest = receivedMsg.addSrc;
-        receivedRR.nextHop = src;
+        receivedRR.nextHop = *src;
         receivedRR.ttl = 10;
         updateRoutingTable(receivedRR);
 
         if(receivedMsg.typeMsg == 1){                           //receive parent request
             LOG_INFO_("Border : Receive Parent Request from ");
-            LOG_PRINT_LLADDR(receivedMsg.addSrc);
+            LOG_PRINT_LLADDR(&receivedMsg.addSrc);
             LOG_INFO_(" \n");
             //TODO : if place enough to get one more children
-                sendParentProposal(receivedMsg));
+            sendParentProposal(receivedMsg);
         }
 
         if(receivedMsg.typeMsg == 2){   //received parent proposal
-            LOG_INFO_("Border : Receive Parent Proposal\n");
-            parentProposalComparison(receivedMsg);
+            LOG_INFO_("[UNEXPECTED] Border : Receive Parent Proposal\n");
         }
 
-        if(typeMsgReceived == 4){                           //infoRoutage
+        if(receivedMsg.typeMsg == 4){                           //infoRoutage
             LOG_INFO_("Border : Receive Parent Request from ");
             LOG_PRINT_LLADDR(src);
             LOG_INFO_(" \n");
-            sendParentProposal(src);
+            sendParentProposal(receivedMsg);
         }
          
     }
@@ -130,11 +127,20 @@ void input_callback(const void *data, uint16_t len,
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(nullnet_example_process, ev, data){
     static struct etimer periodic_timer;
+    broadcastMsg msg;
 
     PROCESS_BEGIN();
+    if(!init_var){
+        routingRecord defaultRR;
+        defaultRR.ttl = -1;
+        for (int i = 0 ; i < sizeof(routingTable) ; i++){
+            routingTable[i] = defaultRR;
+        }
+        init_var = 1;
+    }
 
     // Initialize NullNet
-    nullnet_buf = (uint8_t * ) &broadcastMsg;
+    nullnet_buf = (uint8_t * ) &msg;
     nullnet_len = sizeof(struct Message);
 
 
