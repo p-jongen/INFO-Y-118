@@ -5,8 +5,8 @@
 #include <string.h>
 #include <stdio.h> /* For printf() */
 #include "node.h"
-#include <time.h>
-#include <stdlib.h>
+#include <stdlib.h> 
+#include <math.h> 
 
 /* Log configuration */
 #include "sys/log.h"
@@ -17,10 +17,10 @@
 #define SEND_INTERVAL (8 * CLOCK_SECOND)
 #define SEND_INTERVAL_VALUE (60 * CLOCK_SECOND)
 
+
 static node_t parent;
 static int rank = 99;
 
-srand(time(NULL));
 
 /*---------------------------------------------------------------------------*/
 PROCESS(nullnet_example_process, "NullNet broadcast example");
@@ -114,28 +114,26 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
 
     nullnet_set_input_callback(input_callback);         //LISTENER
 
-    etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
-    etimer_set(&periodic_timer_valueSensor, SEND_INTERVAL_VALUE);
+
     while(1) {
         //parent
         if(parent.hasParent == 0){                 //if no parent, send request
+            etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
             LOG_INFO_("Sensor parent : None\n");
             requestParent(rank);
-        }else{
-            LOG_INFO_("Sensor parent : Has a parent\n");
+            PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_parentRequest));
+            etimer_reset(&periodic_timer_parentRequest);
         }
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_parentRequest));
-        etimer_reset(&periodic_timer_parentRequest);
 
-        //sensor Value
-
-        if(parent.hasParent == 1){      //récup value que s'il a un parent
-            int r = rand() % 99;
-
-            LOG_INFO_("Sensor value %d", r);
+        etimer_set(&periodic_timer_valueSensor, SEND_INTERVAL_VALUE);
+        if(parent.hasParent == 1){                 //if no parent, send request
+            int r = abs(rand() % 100);
+            LOG_INFO_("Value of sensor : %d\n", r);
         }
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_valueSensor));
+        
         etimer_reset(&periodic_timer_valueSensor);
+        
 
     }
 

@@ -102,24 +102,21 @@ void requestParent(short rank){
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
-    static struct etimer periodic_timer;
+    static struct etimer periodic_timer_parentRequest;
 
     PROCESS_BEGIN();
 
     nullnet_set_input_callback(input_callback);         //LISTENER
     
-    etimer_set(&periodic_timer, SEND_INTERVAL);
+    etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
     while(1) {
         if(parent.hasParent == 0){                 //if no parent, send request
+            etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
             LOG_INFO_("Computation parent : None\n");
             requestParent(rank);
-        }else{
-            LOG_INFO_("Computation parent : Has a parent\n");
+            PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_parentRequest));
+            etimer_reset(&periodic_timer_parentRequest);
         }
-
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-
-        etimer_reset(&periodic_timer);
     }
 
     //nullnet_set_input_callback(input_callback); 
