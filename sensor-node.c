@@ -5,6 +5,8 @@
 #include <string.h>
 #include <stdio.h> /* For printf() */
 #include "node.h"
+#include <time.h>
+#include <stdlib.h>
 
 /* Log configuration */
 #include "sys/log.h"
@@ -13,9 +15,12 @@
 
 /* Configuration */
 #define SEND_INTERVAL (8 * CLOCK_SECOND)
+#define SEND_INTERVAL_VALUE (60 * CLOCK_SECOND)
 
 static node_t parent;
 static int rank = 99;
+
+srand(time(NULL));
 
 /*---------------------------------------------------------------------------*/
 PROCESS(nullnet_example_process, "NullNet broadcast example");
@@ -49,7 +54,7 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
     if(len == sizeof(unsigned)) {
         unsigned bufData;
         memcpy(&bufData, data, 2);
-        int typeMsgReceived = bufData/10000; 65655
+        int typeMsgReceived = bufData/10000;
 
         if(typeMsgReceived == 1){   //Received parent request
             LOG_INFO_("Sensor : Receive Parent Request\n");
@@ -65,18 +70,20 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
                 addParent(src, parentRankReceived);
 
                 LOG_INFO_("New parent for Sensor : ");
+                LOG_INFO_LLADDR(src);
+                LOG_INFO_(" (Parent rank = %d)\n", parent.rank);
             }else{  //déjà un parent
                 if( parentRankReceived < parent.rank){
                     addParent(src, parentRankReceived);
 
                     LOG_INFO_("Better parent for Sensor :  ");
+                    LOG_INFO_LLADDR(src);
+                    LOG_INFO_(" (Parent rank = %d)\n", parent.rank);
                 }
                 else{
                     LOG_INFO_("Old parent holded for Sensor : ");
                 }
             }
-            LOG_INFO_LLADDR(src);
-            LOG_INFO_(" (Parent rank = %d)\n", parent.rank);
         }
         if(typeMsgReceived == 3){
 
@@ -100,26 +107,35 @@ void requestParent(short rank){
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
-    static struct etimer periodic_timer;
+    static struct etimer periodic_timer_parentRequest;
+    static struct etimer periodic_timer_valueSensor;
 
     PROCESS_BEGIN();
 
     nullnet_set_input_callback(input_callback);         //LISTENER
 
-    etimer_set(&periodic_timer, SEND_INTERVAL);
+    etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
+    etimer_set(&periodic_timer_valueSensor, SEND_INTERVAL_VALUE);
     while(1) {
         //parent
         if(parent.hasParent == 0){                 //if no parent, send request
             LOG_INFO_("Sensor parent : None\n");
             requestParent(rank);
         }else{
-            LOG_INFO_("Sensor parent : Has a parent");
-
+            LOG_INFO_("Sensor parent : Has a parent\n");
         }
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-        etimer_reset(&periodic_timer);
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_parentRequest));
+        etimer_reset(&periodic_timer_parentRequest);
 
         //sensor Value
+
+        if(parent.hasParent == 1){      //récup value que s'il a un parent
+            int r = rand() % 99;
+
+            LOG_INFO_("Sensor value %d", r);
+        }
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_valueSensor));
+        etimer_reset(&periodic_timer_valueSensor);
 
     }
 
