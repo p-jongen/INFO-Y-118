@@ -154,11 +154,9 @@ void requestParentBroadcast(){
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
     static struct etimer periodic_timer_parentRequest;
-    broadcastMsg msg;
 
     PROCESS_BEGIN();
     if(!init_var){
-        LOG_INFO_("Je passe dans le THREAD : 1\n");
         routingRecord defaultRR;
         defaultRR.ttl = -1;
         for (int i = 0 ; i < sizeof(routingTable) ; i++){
@@ -167,19 +165,24 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
         init_var = 1;
     }
 
+    LOG_INFO_("BEFORE INIT\n");
     // Initialize NullNet
-    msg.typeMsg = 3;
-
-    nullnet_buf = (uint8_t * ) &msg;
+    broadcastMsg msgPrep;                   //prepare info
+    msgPrep.typeMsg = 1;
+    msgPrep.addSrc = linkaddr_node_addr;
+    nullnet_buf = (uint8_t * ) &msgPrep;
     nullnet_len = sizeof(struct Message);
-    nullnet_set_input_callback(input_callback);         //LISTENER
-    
-    //INITIALIZER
     NETSTACK_NETWORK.output(NULL);
+LOG_INFO_("AFTER INIT\n");
 
+    //LISTENER
+    nullnet_set_input_callback(input_callback);
+
+LOG_INFO_("AFTER LISTENER\n");
     while(1) {
+
+LOG_INFO_("IN WHILE\n");
         //TIMER
-        LOG_INFO_("Je passe dans le THREAD : 3\n");
         etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
         countTimer++;
         if (countTimer >= 99960){ //éviter roverflow
