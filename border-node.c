@@ -39,7 +39,7 @@ AUTOSTART_PROCESSES(&nullnet_example_process);
 linkaddr_t routingNextHopForDest(linkaddr_t checkAddDest){
     linkaddr_t nextHopForDest;
     int haveFound = 0;
-    for(int i = 0 ; i < sizeof(routingTable) ; i++){
+    for(int i = 0 ; i < 50 ; i++){
         if(routingTable[i].ttl != -1) {
             if (!linkaddr_cmp(&routingTable[i].addDest, &checkAddDest)) {
                 nextHopForDest = routingTable[i].nextHop;
@@ -48,7 +48,8 @@ linkaddr_t routingNextHopForDest(linkaddr_t checkAddDest){
         }
     }
     if (!haveFound) {
-        LOG_INFO_("ADD NOT FOUND IN TABLE");
+        LOG_INFO_("Border : ADD NOT FOUND IN TABLE \n");
+        nextHopForDest = checkAddDest;
     }
     return nextHopForDest;
 }
@@ -64,16 +65,20 @@ void sendParentProposal(broadcastMsg receivedMsg){
     msgPrep.rank = RANK;
     msgPrep.typeMsg = 2;
 
+
     memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
     nullnet_len = sizeof(struct Message);
     linkaddr_t dest = routingNextHopForDest(receivedMsg.addSrc);
+    LOG_INFO_("Border : Yaouhou ");
+    LOG_INFO_LLADDR(&dest);
+    LOG_INFO_(" \n");
     NETSTACK_NETWORK.output(&dest);
 }
 
 void updateRoutingTable(routingRecord receivedRR){
     int isInTable = 0;
     int indexLibre = 0;
-    for(int i = 0 ; i < sizeof(routingTable) ; i++){
+    for(int i = 0 ; i < 50 ; i++){
         if (routingTable[i].ttl != -1) {
             if (!linkaddr_cmp(&routingTable[i].addDest, &receivedRR.addDest)) {
                 isInTable = 1;
@@ -127,22 +132,24 @@ void input_callback(const void *data, uint16_t len,
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(nullnet_example_process, ev, data){
     static struct etimer periodic_timer;
-    broadcastMsg msg;
+    static unsigned count = 0;
+    //broadcastMsg msg;
 
     PROCESS_BEGIN();
     if(!init_var){
         routingRecord defaultRR;
         defaultRR.ttl = -1;
-        for (int i = 0 ; i < sizeof(routingTable) ; i++){
+        for (int i = 0 ; i < 50 ; i++){
             routingTable[i] = defaultRR;
         }
         init_var = 1;
     }
 
     // Initialize NullNet
-    nullnet_buf = (uint8_t * ) &msg;
-    nullnet_len = sizeof(struct Message);
-
+    //msg.typeMsg = 3;
+    
+    nullnet_buf = (uint8_t *)&count;
+    nullnet_len = sizeof(count);
 
     nullnet_set_input_callback(input_callback); //LISTENER packet
 
@@ -153,8 +160,6 @@ PROCESS_THREAD(nullnet_example_process, ev, data){
 
     while(1) {
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-
-        NETSTACK_NETWORK.output(NULL);
         etimer_reset(&periodic_timer);
     }
 

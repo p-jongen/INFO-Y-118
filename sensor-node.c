@@ -31,7 +31,7 @@ AUTOSTART_PROCESSES(&nullnet_example_process);
 linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
     linkaddr_t nextHopForDest;
     int haveFound = 0;
-    for(int i = 0 ; i < sizeof(routingTable) ; i++){
+    for(int i = 0 ; i < 50 ; i++){
         if(routingTable[i].ttl != -1) {
             if (!linkaddr_cmp(&routingTable[i].addDest, &checkAddDest)) {
                 nextHopForDest = routingTable[i].nextHop;
@@ -65,7 +65,7 @@ void sendParentProposal(broadcastMsg receivedMsg){
 void updateRoutingTable(routingRecord receivedRR){
     int isInTable = 0;
     int indexLibre = 0;
-    for(int i = 0 ; i < sizeof(routingTable) ; i++){
+    for(int i = 0 ; i < 50 ; i++){
         if (routingTable[i].ttl != -1) {
             if (!linkaddr_cmp(&routingTable[i].addDest, &receivedRR.addDest)) {
                 isInTable = 1;
@@ -78,6 +78,7 @@ void updateRoutingTable(routingRecord receivedRR){
         routingTable[indexLibre] = receivedRR;
     }
 }
+
 
 void addParent(broadcastMsg receivedMsg){  //add or update info about his parent
     parent.address = receivedMsg.addSrc;
@@ -112,10 +113,10 @@ void parentProposalComparison(broadcastMsg receivedMsg){
 
 /*---------------------------------------------------------------------------*/
 void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const linkaddr_t *dest){
+    
     if(len == sizeof(struct Message)) {
         broadcastMsg receivedMsg;
         memcpy(&receivedMsg, data, sizeof(struct Message));
-
         routingRecord receivedRR;
         receivedRR.addDest = receivedMsg.addSrc;
         receivedRR.nextHop = *src;
@@ -123,7 +124,7 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
         updateRoutingTable(receivedRR);
 
         if(receivedMsg.typeMsg == 1){                           //receive parent request
-            LOG_INFO_("Computation : Receive Parent Request from ");
+            LOG_INFO_("Sensor : Receive Parent Request from ");
             LOG_PRINT_LLADDR(&receivedMsg.addSrc);
             LOG_INFO_(" \n");
             //TODO : if place enough to get one more children
@@ -133,7 +134,7 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
         }
 
         if(receivedMsg.typeMsg == 2){   //received parent proposal
-            LOG_INFO_("Computation : Receive Parent Proposal\n");
+            LOG_INFO_("Sensor : Receive Parent Proposal\n");
             parentProposalComparison(receivedMsg);
         }
 
@@ -157,10 +158,11 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
 }*/
 
 void requestParentBroadcast(){
-    LOG_INFO_("Computation : Sending Parent Request\n");
+    LOG_INFO_("Sensor : Sending Parent Request\n");
     broadcastMsg msgPrep;                   //prepare info
     msgPrep.typeMsg = 1;
     msgPrep.addSrc = linkaddr_node_addr;
+    LOG_INFO_("Sensor : %u\n", sizeof(struct Message));
 
     memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
     nullnet_len = sizeof(struct Message);
@@ -170,42 +172,43 @@ void requestParentBroadcast(){
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
-    static struct etimer periodic_timer;
-    broadcastMsg msg;
+    static struct etimer periodic_timer_parentRequest;
+    static unsigned count = 0;
 
     PROCESS_BEGIN();
-
     if(!init_var){
         routingRecord defaultRR;
         defaultRR.ttl = -1;
-        for (int i = 0 ; i < sizeof(routingTable) ; i++){
+        for (int i = 0 ; i < 50 ; i++){
             routingTable[i] = defaultRR;
         }
         init_var = 1;
     }
 
     // Initialize NullNet
-    nullnet_buf = (uint8_t * ) &msg;
-    nullnet_len = sizeof(struct Message);
+    //msg.typeMsg = 3;
 
+
+    nullnet_buf = (uint8_t *)&count;
+    nullnet_len = sizeof(count);
+    memcpy(nullnet_buf, &count, sizeof(count));
     nullnet_set_input_callback(input_callback);         //LISTENER
+    
+    if (count >= 99960){ //éviter roverflow
+            count=0;
+    }
 
-    //INITIALIZER
-    NETSTACK_NETWORK.output(NULL);
-
-    while(1) {
-        //parent
-        etimer_set(&periodic_timer, SEND_INTERVAL);
-        countTimer++;
-        if (countTimer >= 99960){ //éviter roverflow
-            countTimer=0;
-        }
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-        etimer_reset(&periodic_timer);
-
-        if(parent.hasParent == 0 && countTimer%8 == 0){                 //if no parent, send request
+    etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
+       
+    while(1){    
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_parentRequest));
+        //PARENT 
+        memcpy(nullnet_buf, &count, sizeof(count));
+        nullnet_len = sizeof(count);
+        NETSTACK_NETWORK.output(NULL);
+        if(parent.hasParent == 0 && count%8 == 0){                 //if no parent, send request
             LOG_INFO_("Computation parent : None\n");
-            requestParentBroadcast(rank);
+            requestParentBroadcast();
         }
 
         if(parent.hasParent == 1 && countTimer%60 == 0){                 //if no parent, send request
@@ -213,6 +216,11 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
             LOG_INFO_("Value of sensor : %d\n", r);
             //sendValToParent(r);
         }
+        
+        
+        count++;
+        etimer_reset(&periodic_timer_parentRequest);
     }
+    
     PROCESS_END();
 }

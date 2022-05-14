@@ -18,8 +18,9 @@ static routingRecord routingTable[50];    //every entry : addSrc, NextHop, TTL
 static int init_var = 0;
 static node_t parent;
 static int rank = 99;
+broadcastMsg msg;
 
-static int countTimer = 0;
+//static int countTimer = 0;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(nullnet_example_process, "NullNet broadcast example");
@@ -28,7 +29,7 @@ AUTOSTART_PROCESSES(&nullnet_example_process);
 linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
     linkaddr_t nextHopForDest;
     int haveFound = 0;
-    for(int i = 0 ; i < sizeof(routingTable) ; i++){
+    for(int i = 0 ; i < 50 ; i++){
         if(routingTable[i].ttl != -1) {
             if (!linkaddr_cmp(&routingTable[i].addDest, &checkAddDest)) {
                 nextHopForDest = routingTable[i].nextHop;
@@ -38,6 +39,7 @@ linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
     }
     if (!haveFound) {
         LOG_INFO_("ADD NOT FOUND IN TABLE");
+        nextHopForDest = checkAddDest;
     }
     return nextHopForDest;
 }
@@ -52,10 +54,16 @@ void sendParentProposal(broadcastMsg receivedMsg){
     msgPrep.addDest = receivedMsg.addSrc;
     msgPrep.rank = rank;
     msgPrep.typeMsg = 2;
+    LOG_INFO_("Border : ssss ");
+    LOG_INFO_LLADDR(&msgPrep.addDest);
+    LOG_INFO_(" \n");
 
     memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
     nullnet_len = sizeof(struct Message);
     linkaddr_t dest = routingNextHopForDest(receivedMsg.addSrc);
+    LOG_INFO_("Border : Yaouhou ");
+    LOG_INFO_LLADDR(&dest);
+    LOG_INFO_(" \n");
     NETSTACK_NETWORK.output(&dest);
 }
 
@@ -93,7 +101,7 @@ void parentProposalComparison(broadcastMsg receivedMsg){
 void updateRoutingTable(routingRecord receivedRR){
     int isInTable = 0;
     int indexLibre = 0;
-    for(int i = 0 ; i < sizeof(routingTable) ; i++){
+    for(int i = 0 ; i < 50 ; i++){
         if (routingTable[i].ttl != -1) {
             if (!linkaddr_cmp(&routingTable[i].addDest, &receivedRR.addDest)) {
                 isInTable = 1;
@@ -154,50 +162,50 @@ void requestParentBroadcast(){
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
     static struct etimer periodic_timer_parentRequest;
+    static unsigned count = 0;
 
     PROCESS_BEGIN();
     if(!init_var){
         routingRecord defaultRR;
         defaultRR.ttl = -1;
-        for (int i = 0 ; i < sizeof(routingTable) ; i++){
+        for (int i = 0 ; i < 50 ; i++){
             routingTable[i] = defaultRR;
         }
         init_var = 1;
     }
 
-    LOG_INFO_("BEFORE INIT\n");
     // Initialize NullNet
-    broadcastMsg msgPrep;                   //prepare info
-    msgPrep.typeMsg = 1;
-    msgPrep.addSrc = linkaddr_node_addr;
-    nullnet_buf = (uint8_t * ) &msgPrep;
-    nullnet_len = sizeof(struct Message);
-    LOG_INFO_("BEFORE NETSTACK\n");
+    //msg.typeMsg = 3;
 
-NETSTACK_NETWORK.output(NULL);
-LOG_INFO_("AFTER INIT\n");
 
-    //LISTENER
-    nullnet_set_input_callback(input_callback);
+    nullnet_buf = (uint8_t *)&count;
+    nullnet_len = sizeof(count);
+    memcpy(nullnet_buf, &count, sizeof(count));
+    nullnet_set_input_callback(input_callback);         //LISTENER
+    
+    if (count >= 99960){ //éviter roverflow
+            count=0;
+    }
 
-LOG_INFO_("AFTER LISTENER\n");
-    while(1) {
-
-LOG_INFO_("IN WHILE\n");
-        //TIMER
-        etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
-        countTimer++;
-        if (countTimer >= 99960){ //éviter roverflow
-            countTimer=0;
-        }
+    etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
+       
+    while(1){    
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_parentRequest));
-        etimer_reset(&periodic_timer_parentRequest);
-
-        //PARENT
-        if(parent.hasParent == 0 && countTimer%8 == 0){                 //if no parent, send request
+        //PARENT 
+        memcpy(nullnet_buf, &count, sizeof(count));
+        nullnet_len = sizeof(count);
+        NETSTACK_NETWORK.output(NULL);
+        if(parent.hasParent == 0 && count%9 == 0){                 //if no parent, send request
             LOG_INFO_("Computation parent : None\n");
             requestParentBroadcast();
+            count++;
         }
+        
+       
+        count++;
+        
+        etimer_reset(&periodic_timer_parentRequest);
     }
+    
     PROCESS_END();
 }
