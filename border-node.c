@@ -30,6 +30,7 @@ static linkaddr_t coordinator_addr =  {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0
 static int lenRoutingTable = 50;
 static routingRecord routingTable[50];    //every entry : addSrc, NextHop, TTL
 
+
 int init_var = 0;
 static unsigned count = 0;
 
@@ -68,12 +69,8 @@ void sendParentProposal(broadcastMsg receivedMsg){
     msgPrep.typeMsg = 2;
 
 
-    memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
+    nullnet_buf = (uint8_t *)&msgPrep;
     nullnet_len = sizeof(struct Message);
-
-    LOG_INFO_("Border : Yaouhou ");
-    LOG_INFO_LLADDR(&msgPrep.addDest);
-    LOG_INFO_(" \n");
     NETSTACK_NETWORK.output(&msgPrep.addDest);
 }
 
@@ -82,15 +79,16 @@ void updateRoutingTable(routingRecord receivedRR){
     int indexLibre = 0;
     for(int i = 0 ; i < lenRoutingTable ; i++){
         if (routingTable[i].ttl != -1) {
-            if (!linkaddr_cmp(&routingTable[i].addDest, &receivedRR.addDest)) {
+            if (linkaddr_cmp(&routingTable[i].addDest, &receivedRR.addDest)) {
                 isInTable = 1;
                 routingTable[i].ttl = 10;
+                break;
             }
             indexLibre++;
         }
     }
     if(isInTable == 0){                     //alors, add à la routing table
-        LOG_INFO_("Border added record in Table");
+        LOG_INFO_("Border : Record added\n");
         routingTable[indexLibre] = receivedRR;
     }
 }
@@ -102,29 +100,30 @@ void input_callback(const void *data, uint16_t len,
     if(len == sizeof(struct Message)) {
         broadcastMsg receivedMsg;
         memcpy(&receivedMsg, data, sizeof(struct Message));
-
-        routingRecord receivedRR;
-        receivedRR.addDest = receivedMsg.addSrc;
-        receivedRR.nextHop = *src;
-        receivedRR.ttl = 10;
-        updateRoutingTable(receivedRR);
         
-        routingRecord receivedRRNextHop;        //màj du previous hop
-        receivedRRNextHop.addDest = *src;
-        receivedRR.nextHop = *src;
-        receivedRR.ttl = 10;
-        updateRoutingTable(receivedRRNextHop);
+        if(receivedMsg.typeMsg == 10){
+            LOG_INFO_("In\n");
+        }else{
+            routingRecord receivedRR;
+            receivedRR.addDest = receivedMsg.addSrc;
+            receivedRR.nextHop = *src;
+            receivedRR.ttl = 10;
+            updateRoutingTable(receivedRR);
+            
+            routingRecord receivedRRNextHop;        //màj du previous hop
+            receivedRRNextHop.addDest = *src;
+            receivedRR.nextHop = *src;
+            receivedRR.ttl = 10;
+            updateRoutingTable(receivedRRNextHop);
 
-        //if(linkaddr_cmp(&receivedMsg.addDest, &linkaddr_node_addr) || linkaddr_cmp(&receivedMsg.addDest, &linkaddr_null)) {  //si msg lui est destiné ou si val par default = broadcast
             if (receivedMsg.typeMsg == 0) {                           //Keep-Alive
-                LOG_INFO_("Border received KEEP alive");
+                LOG_INFO_("Border received KEEP alive\n");
                 updateRoutingTable(receivedRR);
             }
             if (receivedMsg.typeMsg == 1) {                           //receive parent request
                 LOG_INFO_("Border : Receive Parent Request from ");
                 LOG_PRINT_LLADDR(&receivedMsg.addSrc);
                 LOG_INFO_(" \n");
-                //TODO : if place enough to get one more children
                 sendParentProposal(receivedMsg);
             }
             if (receivedMsg.typeMsg == 2) {   //received parent proposal
@@ -133,10 +132,7 @@ void input_callback(const void *data, uint16_t len,
             if (receivedMsg.typeMsg == 3) {     //receive sensor value  //TODO
                 LOG_INFO_("Border received sensor value (fct vide)\n");
             }
-        //}
-
-
-         
+        }
     }
 }
 

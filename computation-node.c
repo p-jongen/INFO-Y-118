@@ -23,8 +23,6 @@ static node_t parent;
 static int rank = 99;
 static unsigned count = 0;
 
-broadcastMsg msg;
-
 extern const linkaddr_t linkaddr_null;
 extern linkaddr_t linkaddr_node_addr;
 
@@ -62,7 +60,7 @@ void sendKeepAliveToParent(){
     nullnet_buf = (uint8_t *)&msgPrep;
     nullnet_len = sizeof(struct Message);
     NETSTACK_NETWORK.output(&parent.address);
-    LOG_INFO_("I sent a KEEPALIVE\n");
+    LOG_INFO_("Computation : Sent keepalive\n");
 }
 
 
@@ -124,15 +122,16 @@ void updateRoutingTable(routingRecord receivedRR){
     int indexLibre = 0;
     for(int i = 0 ; i < lenRoutingTable ; i++){
         if (routingTable[i].ttl != -1) {
-            if (!linkaddr_cmp(&routingTable[i].addDest, &receivedRR.addDest)) {
+            if (linkaddr_cmp(&routingTable[i].addDest, &receivedRR.addDest)) {
                 isInTable = 1;
                 routingTable[i].ttl = 10;
+                LOG_INFO_("Computation : Record update\n");
             }
             indexLibre++;
         }
     }
     if(isInTable == 0){                     //alors, add à la routing table
-        LOG_INFO_("Computation added record in Table \n");
+        LOG_INFO_("Computation : Record added\n");
         routingTable[indexLibre] = receivedRR;
     }
 }
@@ -175,52 +174,56 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
         broadcastMsg receivedMsg;
         memcpy(&receivedMsg, data, sizeof(struct Message));
         
-        routingRecord receivedRR;
-        receivedRR.addDest = receivedMsg.addSrc;
-        receivedRR.nextHop = *src;
-        receivedRR.ttl = 10;
-
-        updateRoutingTable(receivedRR);
-
-        if(linkaddr_cmp(&receivedMsg.addDest, &linkaddr_node_addr) || linkaddr_cmp(&receivedMsg.addDest, &linkaddr_null)) {  //si msg lui est destiné ou si val par default = broadcast
-            if (receivedMsg.typeMsg == 0) {                           //Keep-Alive received
-                LOG_INFO_("Computation received KEEP alive");
-                updateRoutingTable(receivedRR);
-            }
-            if (receivedMsg.typeMsg == 1) {                           //receive parent request
-                LOG_INFO_("Computation : Receive Parent Request from ");
-                LOG_PRINT_LLADDR(&receivedMsg.addSrc);
-                LOG_INFO_(" \n");
-                //TODO : if place enough to get one more children
-                if (parent.hasParent) {
-                    sendParentProposal(receivedMsg);
-                }
-            }
-
-            if (receivedMsg.typeMsg == 2) {   //received parent proposal
-                LOG_INFO_("Computation : Receive Parent Proposal\n");
-                parentProposalComparison(receivedMsg);
-            }
-            if (receivedMsg.typeMsg == 3) {     //receive sensor value
-                LOG_INFO_("Computation : type msg = 3 --> Calcule ou forward\n");
-                if (parent.hasParent) {               //Vérif qu'il a bien un parent
-                    //TODO vérif s'il peut prendre un sensor de plus sous son aile
-                    computeActionFromSensorValue(receivedMsg);
-                }
-            }
-            if (receivedMsg.typeMsg == 4) {   //received parent proposal    //TODO
-                LOG_INFO_("Computation received openSignal --> TODO forward\n");
-            }
-        }
-        else{          //il forward car pas pour lui (ni on add, ni broadcast)
-            routingRecord receivedRRNextHop;        //màj du previous hop
-            receivedRRNextHop.addDest = *src;
+        if(receivedMsg.typeMsg == 10){
+            LOG_INFO_("In\n");
+        }else{
+            routingRecord receivedRR;
+            receivedRR.addDest = receivedMsg.addSrc;
             receivedRR.nextHop = *src;
             receivedRR.ttl = 10;
-            updateRoutingTable(receivedRRNextHop);
 
-            forward(receivedMsg);
-        }
+            updateRoutingTable(receivedRR);
+
+            if(linkaddr_cmp(&receivedMsg.addDest, &linkaddr_node_addr) || linkaddr_cmp(&receivedMsg.addDest, &linkaddr_null)) {  //si msg lui est destiné ou si val par default = broadcast
+                if (receivedMsg.typeMsg == 0) {                           //Keep-Alive received
+                    LOG_INFO_("Computation received KEEP alive");
+                    updateRoutingTable(receivedRR);
+                }
+                if (receivedMsg.typeMsg == 1) {                           //receive parent request
+                    LOG_INFO_("Computation : Receive Parent Request from ");
+                    LOG_PRINT_LLADDR(&receivedMsg.addSrc);
+                    LOG_INFO_(" \n");
+                    //TODO : if place enough to get one more children
+                    if (parent.hasParent) {
+                        sendParentProposal(receivedMsg);
+                    }
+                }
+
+                if (receivedMsg.typeMsg == 2) {   //received parent proposal
+                    LOG_INFO_("Computation : Receive Parent Proposal\n");
+                    parentProposalComparison(receivedMsg);
+                }
+                if (receivedMsg.typeMsg == 3) {     //receive sensor value
+                    LOG_INFO_("Computation : type msg = 3 --> Calcule ou forward\n");
+                    if (parent.hasParent) {               //Vérif qu'il a bien un parent
+                        //TODO vérif s'il peut prendre un sensor de plus sous son aile
+                        computeActionFromSensorValue(receivedMsg);
+                    }
+                }
+                if (receivedMsg.typeMsg == 4) {   //received parent proposal    //TODO
+                    LOG_INFO_("Computation received openSignal --> TODO forward\n");
+                }
+            }
+            else{          //il forward car pas pour lui (ni on add, ni broadcast)
+                routingRecord receivedRRNextHop;        //màj du previous hop
+                receivedRRNextHop.addDest = *src;
+                receivedRR.nextHop = *src;
+                receivedRR.ttl = 10;
+                updateRoutingTable(receivedRRNextHop);
+
+                forward(receivedMsg);
+            }
+        }    
     }
 }
 
@@ -230,8 +233,7 @@ void requestParentBroadcast(){
     msgPrep.typeMsg = 1;
     msgPrep.addSrc = linkaddr_node_addr;
 
-    nullnet_buf = (uint8_t *)&count;
-    memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
+    nullnet_buf = (uint8_t *)&msgPrep;
     nullnet_len = sizeof(struct Message);
     NETSTACK_NETWORK.output(NULL);
 }
@@ -263,56 +265,56 @@ void keepAliveDecreaseAll(){                            //réduit de 1 tous les 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
-  static struct etimer periodic_timer;
-    broadcastMsg msgInit; 
-  PROCESS_BEGIN();
+    static struct etimer periodic_timer;
+    broadcastMsg msgInit;
+    msgInit.typeMsg = 10;
+        
+    PROCESS_BEGIN();
 
-  if(!init_var){
-        routingRecord defaultRR;
-        defaultRR.ttl = -1;
-        for (int i = 0 ; i < lenRoutingTable ; i++){
-            routingTable[i] = defaultRR;
+    if(!init_var){
+            routingRecord defaultRR;
+            defaultRR.ttl = -1;
+            for (int i = 0 ; i < lenRoutingTable ; i++){
+                routingTable[i] = defaultRR;
+            }
+            init_var = 1;
         }
-        init_var = 1;
-    }
 
-  /* Initialize NullNet */
-  nullnet_buf = (uint8_t *)&msgInit;
-  nullnet_len = sizeof(struct Message);
-  nullnet_set_input_callback(input_callback);
+    /* Initialize NullNet */
+    nullnet_buf = (uint8_t *)&msgInit;
+    nullnet_len = sizeof(struct Message);
+    nullnet_set_input_callback(input_callback);
 
-  etimer_set(&periodic_timer, SEND_INTERVAL);
+    etimer_set(&periodic_timer, SEND_INTERVAL);
 
-  NETSTACK_NETWORK.output(NULL);
+    NETSTACK_NETWORK.output(NULL);
 
-  while(1) {
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+    while(1) {
+        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
 
-    count++;
-
-    if(parent.hasParent == 0 && count%8 == 0){                 //if no parent, send request
         count++;
-        LOG_INFO_("Computation parent : None\n");
-        //requestParentBroadcast();
 
-        LOG_INFO_("Computation : Sending Parent Request\n");
-        broadcastMsg msgPrep;                   //prepare info
-        msgPrep.typeMsg = 1;
-        msgPrep.addSrc = linkaddr_node_addr;
-        LOG_INFO_("Computation : %d \n", msgPrep.typeMsg);
-        nullnet_buf = (uint8_t *)&msgPrep;
-        //memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
-        nullnet_len = sizeof(struct Message);
-        NETSTACK_NETWORK.output(NULL); 
-    }
-    if(parent.hasParent == 1 && count%20 == 0){                 //all keep-alive --
-        count++;
-        sendKeepAliveToParent();
-        //keepAliveDecreaseAll();
-    }
+        if(parent.hasParent == 0 && count%8 == 0){                 //if no parent, send request
+            count++;
+            LOG_INFO_("Computation parent : None\n");
+            //requestParentBroadcast();
+
+            LOG_INFO_("Computation : Sending Parent Request\n");
+            broadcastMsg msgPrep;                   //prepare info
+            msgPrep.typeMsg = 1;
+            msgPrep.addSrc = linkaddr_node_addr;
+            LOG_INFO_("Computation : %d \n", msgPrep.typeMsg);
+            nullnet_buf = (uint8_t *)&msgPrep;
+            nullnet_len = sizeof(struct Message);
+            NETSTACK_NETWORK.output(NULL); 
+        }
+
+        if(parent.hasParent == 1 && count%20 == 0){                 //all keep-alive --
+            count++;
+            sendKeepAliveToParent();
+            //keepAliveDecreaseAll();
+        }
     etimer_reset(&periodic_timer);
-  }
-
-
+    }
   PROCESS_END();
 }
