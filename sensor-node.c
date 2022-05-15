@@ -17,12 +17,11 @@
 #define SEND_INTERVAL (1 * CLOCK_SECOND)
 
 static int lenRoutingTable = 50;
-static routingRecord routingTable[lenRoutingTable];    //every entry : addSrc, NextHop, TTL
+static routingRecord routingTable[50];    //every entry : addSrc, NextHop, TTL
 static int init_var = 0;
 static node_t parent;
 static int rank = 99;
 
-static int countTimer = 0;
 
 
 /*---------------------------------------------------------------------------*/
@@ -131,7 +130,7 @@ void forwardToParent(broadcastMsg receivedMsg){                 //quand forward 
 }
 
 void forward(broadcastMsg receivedMsg){                         //copie le msg, récup le nexhop pour la dest et envoie au nexhop
-    memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
+    memcpy(nullnet_buf, &receivedMsg, sizeof(struct Message));
     nullnet_len = sizeof(struct Message);
     linkaddr_t dest = routingNextHopForDest(receivedMsg.addDest);
     NETSTACK_NETWORK.output(&dest);
@@ -150,7 +149,7 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
 
         updateRoutingTable(receivedRR);
 
-        if((receivedMsg.addDest == linkaddr_node_addr) || (receivedMsg.addDest == linkaddr_null)) {  //si msg lui est destiné ou si val par default = broadcast
+        if(linkaddr_cmp(&receivedMsg.addDest, &linkaddr_node_addr) || linkaddr_cmp(&receivedMsg.addDest, &linkaddr_null)) {  //si msg lui est destiné ou si val par default = broadcast
             if (receivedMsg.typeMsg == 0) {                           //Keep-Alive
                 LOG_INFO_("Sensor received KEEP alive");
                 updateRoutingTable(receivedRR);
@@ -277,12 +276,12 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
             requestParentBroadcast();
         }
 
-        if(parent.hasParent == 1 && countTimer%60 == 0){                 //all keep-alive --
+        if(parent.hasParent == 1 && count%60 == 0){                 //all keep-alive --
             sendKeepAliveToParent();
             keepAliveDecreaseAll();
             count++;
         }
-        if(parent.hasParent == 1 && countTimer%60 == 0){                 //if parent, recup value
+        if(parent.hasParent == 1 && count%60 == 0){                 //if parent, recup value
             int r = abs(rand() % 100);
             LOG_INFO_("Value of sensor : %d\n", r);
             sendValToParent(r);

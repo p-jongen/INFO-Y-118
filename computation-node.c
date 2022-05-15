@@ -15,12 +15,16 @@
 #define SEND_INTERVAL (1 * CLOCK_SECOND)
 
 static int lenRoutingTable = 50;
-static routingRecord routingTable[lenRoutingTable];    //every entry : addSrc, NextHop, TTL
+static routingRecord routingTable[50];    //every entry : addSrc, NextHop, TTL
 static int init_var = 0;
 static node_t parent;
 static int rank = 99;
 
 broadcastMsg msg;
+
+extern const linkaddr_t linkaddr_null;
+extern linkaddr_t linkaddr_node_addr;
+
 
 //static int countTimer = 0;
 
@@ -76,7 +80,7 @@ void sendParentProposal(broadcastMsg receivedMsg){
     nullnet_len = sizeof(struct Message);
     LOG_INFO_("Border : Yaouhou ");
     LOG_INFO_(" \n");
-    NETSTACK_NETWORK.output(&msgPrep.addDest;
+    NETSTACK_NETWORK.output(&msgPrep.addDest);
 }
 
 void addParent(broadcastMsg receivedMsg){  //add or update info about his parent
@@ -106,7 +110,7 @@ void parentProposalComparison(broadcastMsg receivedMsg){
             //TODO verif l'instensité du signal
         }
         else{
-            LOG_INFO_("Old parent holded for Computation");
+            LOG_INFO_("Old parent holded for Computation \n");
         }
     }
 }
@@ -124,7 +128,7 @@ void updateRoutingTable(routingRecord receivedRR){
         }
     }
     if(isInTable == 0){                     //alors, add à la routing table
-        LOG_INFO_("Computation added record in Table");
+        LOG_INFO_("Computation added record in Table \n");
         routingTable[indexLibre] = receivedRR;
     }
 }
@@ -154,7 +158,7 @@ void computeActionFromSensorValue(broadcastMsg receivedMsg){
 }
 
 void forward(broadcastMsg receivedMsg){                              //copie le msg, récup le nexhop pour la dest et envoie au nexhop
-    memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
+    memcpy(nullnet_buf, &receivedMsg, sizeof(struct Message));
     nullnet_len = sizeof(struct Message);
     linkaddr_t dest = routingNextHopForDest(receivedMsg.addDest);
     NETSTACK_NETWORK.output(&dest);
@@ -174,7 +178,7 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
 
         updateRoutingTable(receivedRR);
 
-        if((receivedMsg.addDest == linkaddr_node_addr) || (receivedMsg.addDest == linkaddr_null)) {  //si msg lui est destiné ou si val par default = broadcast
+        if(linkaddr_cmp(&receivedMsg.addDest, &linkaddr_node_addr) || linkaddr_cmp(&receivedMsg.addDest, &linkaddr_null)) {  //si msg lui est destiné ou si val par default = broadcast
             if (receivedMsg.typeMsg == 0) {                           //Keep-Alive received
                 LOG_INFO_("Computation received KEEP alive");
                 updateRoutingTable(receivedRR);
@@ -292,7 +296,7 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
             count++;
         }
         //KEEP ALIVE
-        if(parent.hasParent == 1 && countTimer%60 == 0){                 //all keep-alive --
+        if(parent.hasParent == 1 && count%60 == 0){                 //all keep-alive --
             sendKeepAliveToParent();
             keepAliveDecreaseAll();
             count++;

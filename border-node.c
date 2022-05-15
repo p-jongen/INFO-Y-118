@@ -28,10 +28,9 @@ static linkaddr_t coordinator_addr =  {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0
 #define RANK 1              // non variable, car border
 
 static int lenRoutingTable = 50;
-static routingRecord routingTable[lenRoutingTable];    //every entry : addSrc, NextHop, TTL
+static routingRecord routingTable[50];    //every entry : addSrc, NextHop, TTL
 
 int init_var = 0;
-static unsigned count = 0;
 
 
 /*---------------------------------------------------------------------------*/
@@ -136,7 +135,7 @@ void input_callback(const void *data, uint16_t len,
 
             updateRoutingTable(receivedRRNextHop);
 
-            forward(receivedMsg);
+            //forward(receivedMsg);
         }
 
 
@@ -205,7 +204,7 @@ PROCESS_THREAD(nullnet_example_process, ev, data){
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
         etimer_reset(&periodic_timer);
     }
-    if(parent.hasParent == 1 && count%60 == 0){                 //all keep-alive --*
+    if(count%60 == 0){                 //all keep-alive --*
         keepAliveDecreaseAll();
         count++;
     }
