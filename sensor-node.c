@@ -291,7 +291,7 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
             requestParentBroadcast();
         }
 
-        if(parent.hasParent == 1 && count%20 == 0){                 //if parent, recup value
+        if(parent.hasParent == 1 && count%5 == 0){                 //if parent, recup value
             int r = abs(rand() % 100);
             LOG_INFO_("Sensor : Value (%d) sended to ", r);
             LOG_INFO_LLADDR(&parent.address);
