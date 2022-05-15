@@ -40,27 +40,7 @@ struct Message {
 };
 
 typedef struct DB saveValSensor;
-struct Message {
+struct DB {
     linkaddr_t addSensor;
     int val[30];
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
