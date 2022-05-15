@@ -88,8 +88,13 @@ void updateRoutingTable(routingRecord receivedRR){
         }
     }
     if(isInTable == 0){                     //alors, add à la routing table
-        LOG_INFO_("Border : Record added\n");
+    
         routingTable[indexLibre] = receivedRR;
+         LOG_INFO_("Border : Record added : ");
+          LOG_INFO_LLADDR(&routingTable[indexLibre].addDest);
+        LOG_INFO_(" via next hop : ");
+          LOG_INFO_LLADDR(&routingTable[indexLibre].nextHop);
+        LOG_INFO_("\n");
     }
 }
 
@@ -104,20 +109,20 @@ void input_callback(const void *data, uint16_t len,
         if(receivedMsg.typeMsg == 10){
             LOG_INFO_("In\n");
         }else{
+           //UpdateNextHop qui lui a envoyé le msg
+            routingRecord receivedRRNextHop;        
+            receivedRRNextHop.addDest = *src;
+            receivedRRNextHop.nextHop = *src;
+            receivedRRNextHop.ttl = 10;
+            updateRoutingTable(receivedRRNextHop);
+
+            //Prepare update record for needed typeMsg
             routingRecord receivedRR;
             receivedRR.addDest = receivedMsg.addSrc;
             receivedRR.nextHop = *src;
             receivedRR.ttl = 10;
-            updateRoutingTable(receivedRR);
-            
-            routingRecord receivedRRNextHop;        //màj du previous hop
-            receivedRRNextHop.addDest = *src;
-            receivedRR.nextHop = *src;
-            receivedRR.ttl = 10;
-            updateRoutingTable(receivedRRNextHop);
 
             if (receivedMsg.typeMsg == 0) {                           //Keep-Alive
-                LOG_INFO_("Border received KEEP alive\n");
                 updateRoutingTable(receivedRR);
             }
             if (receivedMsg.typeMsg == 1) {                           //receive parent request
@@ -131,6 +136,7 @@ void input_callback(const void *data, uint16_t len,
             }
             if (receivedMsg.typeMsg == 3) {     //receive sensor value  //TODO
                 LOG_INFO_("Border received sensor value (fct vide)\n");
+                updateRoutingTable(receivedRR);
             }
         }
     }
