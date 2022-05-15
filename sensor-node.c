@@ -38,14 +38,10 @@ linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
                 nextHopForDest = routingTable[i].nextHop;
                 haveFound = 1;
             }
-        
-            LOG_INFO_("IN RT SENSOR :");
-            LOG_INFO_LLADDR(&routingTable[i].addDest);
-            LOG_INFO_(" \n");
         }
     }
     if (!haveFound) {
-        LOG_INFO_("ADD NOT FOUND IN TABLE\n");
+        LOG_INFO_("Sensor : ADDR NOT FOUND IN TABLE\n");
     }
     return nextHopForDest;
 }
@@ -59,7 +55,6 @@ void sendKeepAliveToParent(){
     nullnet_buf = (uint8_t *)&msgPrep;
     nullnet_len = sizeof(struct Message);
     NETSTACK_NETWORK.output(&parent.address);
-    LOG_INFO_("Sensor : Sent keepalive\n");
 }
 
 void sendParentProposal(broadcastMsg receivedMsg){
@@ -94,11 +89,11 @@ void updateRoutingTable(routingRecord receivedRR){
     if(isInTable == 0){                     //alors, add à la routing table
        
         routingTable[indexLibre] = receivedRR;
-        LOG_INFO_("Sensor : Record added : ");
-          LOG_INFO_LLADDR(&routingTable[indexLibre].addDest);
-        LOG_INFO_(" via next hop : ");
-          LOG_INFO_LLADDR(&routingTable[indexLibre].nextHop);
-        LOG_INFO_("\n");
+        LOG_INFO_("Sensor : Record added (");
+        LOG_INFO_LLADDR(&routingTable[indexLibre].addDest);
+        LOG_INFO_(") via next hop (");
+        LOG_INFO_LLADDR(&routingTable[indexLibre].nextHop);
+        LOG_INFO_(") \n");
     }
 }
 
@@ -115,22 +110,19 @@ void parentProposalComparison(broadcastMsg receivedMsg){
     if (parent.hasParent == 0){
         addParent(receivedMsg);
 
-        LOG_INFO_("New parent for Sensor : ");
+        LOG_INFO_("Sensor : New parent (");
         LOG_INFO_LLADDR(&receivedMsg.addSrc);
-        LOG_INFO_(" (Parent rank = %d)\n", parent.rank);
+        LOG_INFO_(", rank = %d)\n", parent.rank);
     }else{  //déjà un parent
         if( receivedMsg.rank < parent.rank){
             addParent(receivedMsg);
 
-            LOG_INFO_("Better parent for Sensor :  ");
+            LOG_INFO_("Sensor : Better parent (");
             LOG_INFO_LLADDR(&receivedMsg.addSrc);
-            LOG_INFO_(" (Parent rank = %d)\n", parent.rank);
+            LOG_INFO_(", rank = %d)\n", parent.rank);
         }
         else if(receivedMsg.rank == parent.rank){
             //TODO verif l'instensité du signal
-        }
-        else{
-            LOG_INFO_("Old parent holded for Sensor");
         }
     }
 }
@@ -156,9 +148,7 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
         broadcastMsg receivedMsg;
         memcpy(&receivedMsg, data, sizeof(struct Message));
 
-        if(receivedMsg.typeMsg == 10){
-            LOG_INFO_("In\n");
-        }else{
+        if(receivedMsg.typeMsg != 10){
             //UpdateNextHop qui lui a envoyé le msg
             routingRecord receivedRRNextHop;        
             receivedRRNextHop.addDest = *src;
@@ -177,35 +167,38 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
                     updateRoutingTable(receivedRR);
                 }
                 if (receivedMsg.typeMsg == 1) {                           //receive parent request
-                    LOG_INFO_("Sensor : Receive Parent Request from ");
+                    LOG_INFO_("Sensor : Receive parent request from ");
                     LOG_PRINT_LLADDR(&receivedMsg.addSrc);
                     LOG_INFO_(" \n");
                     //TODO : if place enough to get one more children
                     if (parent.hasParent) {
                         sendParentProposal(receivedMsg);
-                    }else{
-                        LOG_INFO_("Sensor ignore parent request (car no parent) \n");
                     }
                 }
                 if (receivedMsg.typeMsg == 2) {   //received parent proposal
-                    LOG_INFO_("Sensor : Receive Parent Proposal\n");
+                    LOG_INFO_("Sensor : Receive parent proposal from ");
+                    LOG_PRINT_LLADDR(&receivedMsg.addSrc);
+                    LOG_INFO_(" \n");
                     parentProposalComparison(receivedMsg);
                 }
                 if (receivedMsg.typeMsg == 3) {     //receive sensor value
-                    LOG_INFO_("Sensor : type msg = 3 --> Calcule ou forward\n");
-                    
+                    LOG_INFO_("Sensor : Receive sensor value from ");
+                    LOG_PRINT_LLADDR(&receivedMsg.addSrc);
+                    LOG_INFO_(" \n");
                     if (parent.hasParent) {               //Vérif qu'il a bien un parent
                         forwardToParent(receivedMsg);
                         updateRoutingTable(receivedRR);
                     }
                 }
                 if (receivedMsg.typeMsg == 4) {   //received parent proposal    //TODO
-                    LOG_INFO_("Sensor received openSignal\n");
+                    LOG_INFO_("Sensor : Received Open Signal from ");
+                    LOG_PRINT_LLADDR(&receivedMsg.addSrc);
+                    LOG_INFO_(" \n");
                     if(linkaddr_cmp(&receivedMsg.addDest, &linkaddr_node_addr)){  
                         
-                    LOG_INFO_("SENSOR ");
+                    LOG_INFO_("Sensor (");
                     LOG_PRINT_LLADDR(&linkaddr_node_addr);
-                    LOG_INFO_(" OPEN VALVE\n");
+                    LOG_INFO_(") : Open valve\n");
                     }else{          //il forward car pas pour lui
                         forward(receivedMsg);
                     }
@@ -231,22 +224,18 @@ void sendValToParent(int val) {
 }
 
 void requestParentBroadcast(){
-    LOG_INFO_("Sensor : Sending Parent Request\n");
     broadcastMsg msgPrep;                   //prepare info
     msgPrep.typeMsg = 1;
     msgPrep.addSrc = linkaddr_node_addr;
-    LOG_INFO_("Sensor : %u\n", sizeof(struct Message));
 
     nullnet_buf = (uint8_t *)&msgPrep;
     nullnet_len = sizeof(struct Message);
-    NETSTACK_NETWORK.output(NULL);
+    NETSTACK_NETWORK.output(NULL); 
+
+    LOG_INFO_("Computation : Sending Parent Request (broadcast)\n");
 }
 
 void deleteRecord(int indexToDelete){
-    LOG_INFO_("Record DELETED from routing table : ");
-    LOG_INFO_LLADDR(&routingTable[indexToDelete].addDest);
-    LOG_INFO_(" (si pas de faute mdr)\n");
-
     for(int i = indexToDelete ; i < lenRoutingTable ; i++){     //on recule tous les record d'un rank à partir du deleted pour le delete
         routingTable[i] = routingTable[i+1];
     }
@@ -299,20 +288,12 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
 
         if(parent.hasParent == 0 && count%8 == 0){                 //if no parent, send request
             count++;
-
-            //requestParentBroadcast();
-            LOG_INFO_("Sensor : Sending Parent Request\n");
-            broadcastMsg msgPrep;                   //prepare info
-            msgPrep.typeMsg = 1;
-            msgPrep.addSrc = linkaddr_node_addr;
-            nullnet_buf = (uint8_t *)&msgPrep;
-            nullnet_len = sizeof(struct Message);
-            NETSTACK_NETWORK.output(NULL); 
+            requestParentBroadcast();
         }
 
         if(parent.hasParent == 1 && count%20 == 0){                 //if parent, recup value
             int r = abs(rand() % 100);
-            LOG_INFO_("Value of sensor : %d sended to parent : ", r);
+            LOG_INFO_("Sensor : Value (%d) sended to ", r);
             LOG_INFO_LLADDR(&parent.address);
             LOG_INFO_("\n");
             sendValToParent(r);

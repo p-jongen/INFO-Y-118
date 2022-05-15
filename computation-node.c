@@ -46,7 +46,7 @@ linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
         }
     }
     if (!haveFound) {
-        LOG_INFO_("ADD NOT FOUND IN TABLE");
+        LOG_INFO_("Computation : ADDR NOT FOUND IN TABLE\n");
         //nextHopForDest = checkAddDest;
     }
     return nextHopForDest;
@@ -61,7 +61,6 @@ void sendKeepAliveToParent(){
     nullnet_buf = (uint8_t *)&msgPrep;
     nullnet_len = sizeof(struct Message);
     NETSTACK_NETWORK.output(&parent.address);
-    LOG_INFO_("Computation : Sent keepalive\n");
 }
 
 
@@ -93,23 +92,21 @@ void parentProposalComparison(broadcastMsg receivedMsg){
     if (parent.hasParent == 0){
         addParent(receivedMsg);
 
-        LOG_INFO_("New parent for Computation : ");
+        LOG_INFO_("Computation : New parent (");
         LOG_INFO_LLADDR(&receivedMsg.addSrc);
-        LOG_INFO_(" (Parent rank = %d)\n", parent.rank);
+        LOG_INFO_(", rank = %d)\n", parent.rank);
     }else{  //déjà un parent
         if(receivedMsg.rank < parent.rank){
             addParent(receivedMsg);
 
-            LOG_INFO_("Better parent for Computation :  ");
+            LOG_INFO_("Computation : Better parent (");
             LOG_INFO_LLADDR(&receivedMsg.addSrc);
-            LOG_INFO_(" (Parent rank = %d)\n", parent.rank);
+            LOG_INFO_(", rank = %d)\n", parent.rank);
         }
         else if(receivedMsg.rank == parent.rank){
             //TODO verif l'instensité du signal
         }
-        else{
-            LOG_INFO_("Old parent holded for Computation \n");
-        }
+        
     }
 }
 
@@ -127,21 +124,16 @@ void updateRoutingTable(routingRecord receivedRR){
         }
     }
     if(isInTable == 0){                     //alors, add à la routing table
-      
         routingTable[indexLibre] = receivedRR;
-         LOG_INFO_("Computation : Record added : ");
-          LOG_INFO_LLADDR(&routingTable[indexLibre].addDest);
-        LOG_INFO_(" via next hop : ");
-          LOG_INFO_LLADDR(&routingTable[indexLibre].nextHop);
-        LOG_INFO_("\n");
+        LOG_INFO_("Computation : Record added (");
+        LOG_INFO_LLADDR(&routingTable[indexLibre].addDest);
+        LOG_INFO_(") via next hop (");
+        LOG_INFO_LLADDR(&routingTable[indexLibre].nextHop);
+        LOG_INFO_(") \n");
     }
 }
 
 void sendSignalOpenToSrc(broadcastMsg receivedMsg){
-    
-    LOG_INFO_("Computation send OpenValve to ");
-    LOG_INFO_LLADDR(&receivedMsg.addSrc);
-    LOG_INFO_("\n");
     broadcastMsg msgPrep;           //prepare info
     msgPrep.addSrc = linkaddr_node_addr;
     msgPrep.addDest = receivedMsg.addSrc;
@@ -153,11 +145,14 @@ void sendSignalOpenToSrc(broadcastMsg receivedMsg){
     
     linkaddr_t dest = routingNextHopForDest(receivedMsg.addSrc);
     NETSTACK_NETWORK.output(&dest);
+    LOG_INFO_("Computation : Send OpenValve to ");
+    LOG_INFO_LLADDR(&dest);
+    LOG_INFO_(" \n");
 }
 
 void computeActionFromSensorValue(broadcastMsg receivedMsg){
     //TODO : compute
-    LOG_INFO_("Computation compute OpenValve\n");
+    LOG_INFO_("Computation : Compute sensor analysis\n");
     int compute = 1;
     if (compute){           //envoyer signal d'ouverture de valve au sensor src
         sendSignalOpenToSrc(receivedMsg);
@@ -170,9 +165,9 @@ void forward(broadcastMsg receivedMsg){                              //copie le 
     nullnet_buf = (uint8_t *)&receivedMsg;
     nullnet_len = sizeof(struct Message);
     linkaddr_t dest = routingNextHopForDest(receivedMsg.addDest);
-    LOG_INFO_("Computation forward OpenValveValue to add dest : \n");
-                    LOG_PRINT_LLADDR(&dest);
-                    LOG_INFO_(" \n");
+    LOG_INFO_("Computation : Forward OpenValveValue to ");
+    LOG_PRINT_LLADDR(&dest);
+    LOG_INFO_(" \n");
     NETSTACK_NETWORK.output(&dest);
 }
 
@@ -183,9 +178,7 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
         broadcastMsg receivedMsg;
         memcpy(&receivedMsg, data, sizeof(struct Message));
         
-        if(receivedMsg.typeMsg == 10){
-            LOG_INFO_("In\n");
-        }else{
+        if(receivedMsg.typeMsg != 10){
             //UpdateNextHop qui lui a envoyé le msg
             routingRecord receivedRRNextHop;        
             receivedRRNextHop.addDest = *src;
@@ -204,23 +197,25 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
                     updateRoutingTable(receivedRR);
                 }
                 if (receivedMsg.typeMsg == 1) {                           //receive parent request
-                    LOG_INFO_("Computation : Receive Parent Request from ");
+                    LOG_INFO_("Computation : Receive parent request from ");
                     LOG_PRINT_LLADDR(&receivedMsg.addSrc);
                     LOG_INFO_(" \n");
                     //TODO : if place enough to get one more children
                     if (parent.hasParent) {
                         sendParentProposal(receivedMsg);
-                    }else{
-                        LOG_INFO_("Computation ignore request parent (car no parent)\n");
                     }
                 }
 
                 if (receivedMsg.typeMsg == 2) {   //received parent proposal
-                    LOG_INFO_("Computation : Receive Parent Proposal\n");
+                    LOG_INFO_("Computation : Receive parent proposal from ");
+                    LOG_PRINT_LLADDR(&receivedMsg.addSrc);
+                    LOG_INFO_(" \n");
                     parentProposalComparison(receivedMsg);
                 }
                 if (receivedMsg.typeMsg == 3) {     //receive sensor value
-                
+                    LOG_INFO_("Computation : Receive sensor value from ");
+                    LOG_PRINT_LLADDR(&receivedMsg.addSrc);
+                    LOG_INFO_(" \n");
                     if (parent.hasParent) {               //Vérif qu'il a bien un parent
                         //TODO vérif s'il peut prendre un sensor de plus sous son aile
                         computeActionFromSensorValue(receivedMsg);
@@ -228,7 +223,9 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
                     }
                 }
                 if (receivedMsg.typeMsg == 4) {   //TODO
-                    LOG_INFO_("Computation received openSignal --> TODO forward\n");
+                    LOG_INFO_("Computation : Received Open Signal from ");
+                    LOG_PRINT_LLADDR(&receivedMsg.addSrc);
+                    LOG_INFO_(" \n");
                     forward(receivedMsg);
                 }
             }
@@ -240,21 +237,18 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
 }
 
 void requestParentBroadcast(){
-    LOG_INFO_("Computation : Sending Parent Request\n");
     broadcastMsg msgPrep;                   //prepare info
     msgPrep.typeMsg = 1;
     msgPrep.addSrc = linkaddr_node_addr;
 
     nullnet_buf = (uint8_t *)&msgPrep;
     nullnet_len = sizeof(struct Message);
-    NETSTACK_NETWORK.output(NULL);
+    NETSTACK_NETWORK.output(NULL); 
+
+    LOG_INFO_("Computation : Sending Parent Request (broadcast)\n");
 }
 
 void deleteRecord(int indexToDelete){
-    LOG_INFO_("Record DELETED from routing table : ");
-    LOG_INFO_LLADDR(&routingTable[indexToDelete].addDest);
-    LOG_INFO_(" (si pas de faute mdr)\n");
-
     for(int i = indexToDelete ; i < lenRoutingTable ; i++){     //on recule tous les record d'un rank à partir du deleted pour le delete
         routingTable[i] = routingTable[i+1];
     }
@@ -308,14 +302,7 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
 
         if(parent.hasParent == 0 && count%8 == 0){                 //if no parent, send request
             count++;
-            //requestParentBroadcast()
-            LOG_INFO_("Computation : Sending Parent Request\n");
-            broadcastMsg msgPrep;                   //prepare info
-            msgPrep.typeMsg = 1;
-            msgPrep.addSrc = linkaddr_node_addr;
-            nullnet_buf = (uint8_t *)&msgPrep;
-            nullnet_len = sizeof(struct Message);
-            NETSTACK_NETWORK.output(NULL); 
+            requestParentBroadcast();
         }
 
         if(parent.hasParent == 1 && count%20 == 0){                 //all keep-alive --

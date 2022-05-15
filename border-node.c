@@ -51,7 +51,7 @@ linkaddr_t routingNextHopForDest(linkaddr_t checkAddDest){
         }
     }
     if (!haveFound) {
-        LOG_INFO_("Border : ADD NOT FOUND IN TABLE \n");
+        LOG_INFO_("Border : ADDR NOT FOUND IN TABLE \n");
         //nextHopForDest = checkAddDest;
     }
     return nextHopForDest;
@@ -90,11 +90,11 @@ void updateRoutingTable(routingRecord receivedRR){
     if(isInTable == 0){                     //alors, add à la routing table
     
         routingTable[indexLibre] = receivedRR;
-         LOG_INFO_("Border : Record added : ");
-          LOG_INFO_LLADDR(&routingTable[indexLibre].addDest);
-        LOG_INFO_(" via next hop : ");
-          LOG_INFO_LLADDR(&routingTable[indexLibre].nextHop);
-        LOG_INFO_("\n");
+        LOG_INFO_("Border : Record added (");
+        LOG_INFO_LLADDR(&routingTable[indexLibre].addDest);
+        LOG_INFO_(") via next hop (");
+        LOG_INFO_LLADDR(&routingTable[indexLibre].nextHop);
+        LOG_INFO_(") \n");
     }
 }
 
@@ -106,9 +106,7 @@ void input_callback(const void *data, uint16_t len,
         broadcastMsg receivedMsg;
         memcpy(&receivedMsg, data, sizeof(struct Message));
         
-        if(receivedMsg.typeMsg == 10){
-            LOG_INFO_("In\n");
-        }else{
+        if(receivedMsg.typeMsg != 10){
            //UpdateNextHop qui lui a envoyé le msg
             routingRecord receivedRRNextHop;        
             receivedRRNextHop.addDest = *src;
@@ -131,11 +129,8 @@ void input_callback(const void *data, uint16_t len,
                 LOG_INFO_(" \n");
                 sendParentProposal(receivedMsg);
             }
-            if (receivedMsg.typeMsg == 2) {   //received parent proposal
-                LOG_INFO_("[UNEXPECTED] Border : Receive Parent Proposal\n");
-            }
             if (receivedMsg.typeMsg == 3) {     //receive sensor value  //TODO
-                LOG_INFO_("Border received sensor value (fct vide)\n");
+                LOG_INFO_("Border : Receive sensor value (fct vide)\n");
                 updateRoutingTable(receivedRR);
             }
         }
@@ -143,10 +138,6 @@ void input_callback(const void *data, uint16_t len,
 }
 
 void deleteRecord(int indexToDelete){
-    LOG_INFO_("Record DELETED from routing table : ");
-    LOG_INFO_LLADDR(&routingTable[indexToDelete].addDest);
-    LOG_INFO_(" (si pas de faute mdr)\n");
-
     for(int i = indexToDelete ; i < lenRoutingTable ; i++){     //on recule tous les record d'un rank à partir du deleted pour le delete
         routingTable[i] = routingTable[i+1];
     }
