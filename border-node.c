@@ -203,7 +203,6 @@ PROCESS_THREAD(nullnet_example_process, ev, data){
             keepAliveDecreaseAll();
             count++;
         }
-        
         etimer_reset(&periodic_timer);
     }
     PROCESS_END();

@@ -82,6 +82,7 @@ void sendParentProposal(broadcastMsg receivedMsg){  //Send a Parent Proposal to 
     LOG_INFO_LLADDR(&receivedMsg.addSrc);
     LOG_INFO_(" \n");
 }
+
 void sendParentProposalBroadcast(){                 //Send a Parent Proposal in broadcast periodically
     broadcastMsg msgPrep;                           //Prepare the message to be sent
     msgPrep.typeMsg = 2;                            //Message type 2 : Parend Proposal
