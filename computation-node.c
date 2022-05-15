@@ -82,6 +82,19 @@ void sendParentProposal(broadcastMsg receivedMsg){  //Send a Parent Proposal to 
     LOG_INFO_LLADDR(&receivedMsg.addSrc);
     LOG_INFO_(" \n");
 }
+void sendParentProposalBroadcast(){                 //Send a Parent Proposal in broadcast periodically
+    broadcastMsg msgPrep;                           //Prepare the message to be sent
+    msgPrep.typeMsg = 2;                            //Message type 2 : Parend Proposal
+    msgPrep.addSrc = linkaddr_node_addr;
+    msgPrep.rank = rank;                            //Current rank of node
+
+    nullnet_buf = (uint8_t *)&msgPrep;              //Point the buffer to the message
+    nullnet_len = sizeof(struct Message);           //Tell the message length
+    NETSTACK_NETWORK.output(NULL);                  //Send the unicast message
+
+    //Send a log when Parent Proposal is sent
+    LOG_INFO_("Computation : Send Broadcast Parent Proposal");
+}
 
 void addParent(broadcastMsg receivedMsg){       //Add or update info about his parent
     parent.address = receivedMsg.addSrc;
@@ -234,7 +247,7 @@ void requestParentBroadcast(){              //Send a message Parent Request to t
 }
 
 void deleteRecord(int indexToDelete){                           //Delete record from the routing table
-    for(int i = indexToDelete ; i < lenRoutingTable ; i++){     //We increase each rank by one to add a new one
+    for(int i = indexToDelete ; i < lenRoutingTable ; i++){     //We decrease each rank from the deleted record to take the free place
         routingTable[i] = routingTable[i+1];
     }
     routingRecord defaultRR;
