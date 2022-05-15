@@ -36,6 +36,5 @@ struct Message {
     linkaddr_t addDest;
     int typeMsg;
     int sensorValue;
-    // 1 = Parent request
-    // 2 = Parent proposal
+    int openValve;
 };
