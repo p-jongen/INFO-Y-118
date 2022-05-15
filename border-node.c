@@ -142,8 +142,10 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
 
             if (receivedMsg.typeMsg == 3) {             //Received a Sensor message
                 updateRoutingTable(receivedRR);
-                
-                LOG_INFO_("Border : Receive sensor value = %d\n", receivedMsg.sensorValue);
+
+                LOG_INFO_("[SENSOR_VALUE] Border : Receive sensor value = %d ", receivedMsg.sensorValue);
+                LOG_INFO_LLADDR(&receivedMsg.addSrc);
+                LOG_INFO_("\n");
             }
         }
     }
