@@ -11,37 +11,26 @@
 #define LOG_MODULE "App"
 #define LOG_LEVEL LOG_LEVEL_INFO
 
-/*
-#define SEND_INTERVAL (8 * CLOCK_SECOND)
-static linkaddr_t dest_addr =         {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }};
-*/
-
-#if MAC_CONF_WITH_TSCH
-#include "net/mac/tsch/tsch.h"
-static linkaddr_t coordinator_addr =  {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }};
-#endif /* MAC_CONF_WITH_TSCH */
-
-
 /* Configuration */
 #define SEND_INTERVAL (8 * CLOCK_SECOND)
 
 #define RANK 1              // non variable, car border
 
-static int lenRoutingTable = 50;
-static routingRecord routingTable[50];    //every entry : addSrc, NextHop, TTL
+static int lenRoutingTable = 50;            //Max size of routing table
+static int init_var = 0;                    //Initialisation variable
 
+static unsigned count = 0;                  //Count that serv as a timer (incremented each second)
 
-int init_var = 0;
-static unsigned count = 0;
-
+static routingRecord routingTable[50];      //Every entry in the table : addSrc, NextHop, TTL
 
 /*---------------------------------------------------------------------------*/
 PROCESS(nullnet_example_process, "NullNet broadcast example");
 AUTOSTART_PROCESSES(&nullnet_example_process);
 
-linkaddr_t routingNextHopForDest(linkaddr_t checkAddDest){
+linkaddr_t routingNextHopForDest(linkaddr_t checkAddDest){          //Computes the next hop (addr destination) for a received message
     linkaddr_t nextHopForDest;
     int haveFound = 0;
+
     for(int i = 0 ; i < lenRoutingTable ; i++){
         if(routingTable[i].ttl != -1) {
             if (!linkaddr_cmp(&routingTable[i].addDest, &checkAddDest)) {
@@ -52,31 +41,33 @@ linkaddr_t routingNextHopForDest(linkaddr_t checkAddDest){
     }
     if (!haveFound) {
         LOG_INFO_("Border : ADDR NOT FOUND IN TABLE \n");
-        //nextHopForDest = checkAddDest;
     }
     return nextHopForDest;
 }
 
-void sendParentProposal(broadcastMsg receivedMsg){
+void sendParentProposal(broadcastMsg receivedMsg){  //Send a Parent Proposal to whoever send a Parent Request
+    broadcastMsg msgPrep;                           //Prepare the message to be sent
+    msgPrep.typeMsg = 2;                            //Message type 2 : Parend Proposal
+    msgPrep.addSrc = linkaddr_node_addr;
+    msgPrep.addDest = receivedMsg.addSrc;
+    msgPrep.rank = RANK;                            //Current rank of node
+    
+
+    nullnet_buf = (uint8_t *)&msgPrep;              //Point the buffer to the message
+    nullnet_len = sizeof(struct Message);           //Tell the message length
+    NETSTACK_NETWORK.output(&msgPrep.addDest);      //Send the unicast message
+
+    //Send a log when Parent Proposal is sent
     LOG_INFO_("Border : Send Unicast Parent Proposal to ");
     LOG_INFO_LLADDR(&receivedMsg.addSrc);
     LOG_INFO_(" \n");
 
-    broadcastMsg msgPrep;           //prepare info
-    msgPrep.addSrc = linkaddr_node_addr;
-    msgPrep.addDest = receivedMsg.addSrc;
-    msgPrep.rank = RANK;
-    msgPrep.typeMsg = 2;
-
-
-    nullnet_buf = (uint8_t *)&msgPrep;
-    nullnet_len = sizeof(struct Message);
-    NETSTACK_NETWORK.output(&msgPrep.addDest);
 }
 
-void updateRoutingTable(routingRecord receivedRR){
+void updateRoutingTable(routingRecord receivedRR){      //Add record to the routing table
     int isInTable = 0;
     int indexLibre = 0;
+
     for(int i = 0 ; i < lenRoutingTable ; i++){
         if (routingTable[i].ttl != -1) {
             if (linkaddr_cmp(&routingTable[i].addDest, &receivedRR.addDest)) {
@@ -87,8 +78,8 @@ void updateRoutingTable(routingRecord receivedRR){
             indexLibre++;
         }
     }
-    if(isInTable == 0){                     //alors, add à la routing table
-    
+
+    if(isInTable == 0){                                 //If not already, it's added to the routing table
         routingTable[indexLibre] = receivedRR;
         LOG_INFO_("Border : Record added (");
         LOG_INFO_LLADDR(&routingTable[indexLibre].addDest);
@@ -98,16 +89,33 @@ void updateRoutingTable(routingRecord receivedRR){
     }
 }
 
+void deleteRecord(int indexToDelete){                           //Delete record from the routing table
+    for(int i = indexToDelete ; i < lenRoutingTable ; i++){     //We increase each rank by one to add a new one
+        routingTable[i] = routingTable[i+1];
+    }
+    routingRecord defaultRR;
+    defaultRR.ttl = -1;
+    routingTable[lenRoutingTable-1] = defaultRR;                //Reset the last of the routing table
+}
+
+void keepAliveDecreaseAll(){                            //Decrease every TTL of 1
+    for(int i = 0 ; i < lenRoutingTable ; i ++){
+        if(routingTable[i].ttl != -1){
+            routingTable[i].ttl = (routingTable[i].ttl)-1;
+        }if(routingTable[i].ttl == 0){
+            deleteRecord(i);
+        }
+    }
+}
+
 /*---------------------------------------------------------------------------*/
-void input_callback(const void *data, uint16_t len,
-                    const linkaddr_t *src, const linkaddr_t *dest)
-{
+void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const linkaddr_t *dest){ //Handle of every received packet
     if(len == sizeof(struct Message)) {
         broadcastMsg receivedMsg;
         memcpy(&receivedMsg, data, sizeof(struct Message));
         
         if(receivedMsg.typeMsg != 10){
-           //UpdateNextHop qui lui a envoyé le msg
+            //UpdateNextHop that sent a message
             routingRecord receivedRRNextHop;        
             receivedRRNextHop.addDest = *src;
             receivedRRNextHop.nextHop = *src;
@@ -120,55 +128,40 @@ void input_callback(const void *data, uint16_t len,
             receivedRR.nextHop = *src;
             receivedRR.ttl = 10;
 
-            if (receivedMsg.typeMsg == 0) {                           //Keep-Alive
+            if (receivedMsg.typeMsg == 0) {             //Received a Keep-Alive message
                 updateRoutingTable(receivedRR);
             }
-            if (receivedMsg.typeMsg == 1) {                           //receive parent request
+
+            if (receivedMsg.typeMsg == 1) {             //Receive Parent Request
+                sendParentProposal(receivedMsg);
+
                 LOG_INFO_("Border : Receive Parent Request from ");
                 LOG_PRINT_LLADDR(&receivedMsg.addSrc);
                 LOG_INFO_(" \n");
-                sendParentProposal(receivedMsg);
             }
-            if (receivedMsg.typeMsg == 3) {     //receive sensor value  //TODO
-                LOG_INFO_("[SENSOR_VALUE] Border : Receive sensor value = %d ", receivedMsg.sensorValue);
-                LOG_INFO_LLADDR(&receivedMsg.addSrc);
-                LOG_INFO_("\n");
+
+            if (receivedMsg.typeMsg == 3) {             //Received a Sensor message
                 updateRoutingTable(receivedRR);
+                
+                LOG_INFO_("Border : Receive sensor value = %d\n", receivedMsg.sensorValue);
             }
         }
     }
 }
-
-void deleteRecord(int indexToDelete){
-    for(int i = indexToDelete ; i < lenRoutingTable ; i++){     //on recule tous les record d'un rank à partir du deleted pour le delete
-        routingTable[i] = routingTable[i+1];
-    }
-    routingRecord defaultRR;
-    defaultRR.ttl = -1;
-    routingTable[lenRoutingTable-1] = defaultRR;                //reset le dernier de la RT
-}
-
-void keepAliveDecreaseAll(){                            //réduit de 1 tous les keep-alive
-    for(int i = 0 ; i < lenRoutingTable ; i ++){
-        if(routingTable[i].ttl != -1){
-            routingTable[i].ttl = (routingTable[i].ttl)-1;
-        }if(routingTable[i].ttl == 0){
-            deleteRecord(i);
-        }
-    }
-}
-
 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(nullnet_example_process, ev, data){
     static struct etimer periodic_timer;
+
     broadcastMsg msgInit;
     msgInit.typeMsg = 10;
 
     PROCESS_BEGIN();
-    if(!init_var){
+
+    if(!init_var){                                  //Initialize different variable and table only once in the begining
         routingRecord defaultRR;
         defaultRR.ttl = -1;
+
         for (int i = 0 ; i < lenRoutingTable ; i++){
             routingTable[i] = defaultRR;
         }
@@ -176,10 +169,10 @@ PROCESS_THREAD(nullnet_example_process, ev, data){
     }
 
     
-    nullnet_buf = (uint8_t *)&msgInit;
-    nullnet_len = sizeof(struct Message);
+    nullnet_buf = (uint8_t *)&msgInit;              //Point the buffer to the message
+    nullnet_len = sizeof(struct Message);           //Tell the message length
 
-    nullnet_set_input_callback(input_callback); //LISTENER packet
+    nullnet_set_input_callback(input_callback);     //Listener packet
 
     etimer_set(&periodic_timer, SEND_INTERVAL);
 
@@ -187,18 +180,16 @@ PROCESS_THREAD(nullnet_example_process, ev, data){
     NETSTACK_NETWORK.output(NULL);
 
     while(1) {
-        if (count >= 99960){ //éviter roverflow
-            count=0;
-        }
-
         PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+
+        count++;
+
+        if(count%60 == 0){                 //all keep-alive --*
+            keepAliveDecreaseAll();
+            count++;
+        }
+        
         etimer_reset(&periodic_timer);
     }
-    if(count%60 == 0){                 //all keep-alive --*
-        keepAliveDecreaseAll();
-        count++;
-    }
-    count++;
-
     PROCESS_END();
 }
