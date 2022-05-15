@@ -130,7 +130,9 @@ void input_callback(const void *data, uint16_t len,
                 sendParentProposal(receivedMsg);
             }
             if (receivedMsg.typeMsg == 3) {     //receive sensor value  //TODO
-                LOG_INFO_("[SENSOR_VALUE] Border : Receive sensor value = %d\n", receivedMsg.sensorValue);
+                LOG_INFO_("[SENSOR_VALUE] Border : Receive sensor value = %d ", receivedMsg.sensorValue);
+                LOG_INFO_LLADDR(&receivedMsg.addSrc);
+                LOG_INFO_("\n");
                 updateRoutingTable(receivedRR);
             }
         }

@@ -2,8 +2,14 @@ import socket
 import argparse
 import sys
 
-threshold = 60
+PREFIX = "[SENSOR_VALUE]"
+OPEN = "OPEN"
+CLOSE = "CLOSE"
+THRESHOLD = 60
+MAX_ELEMENTS = 30
+
 dict_sensors = dict()
+return_result = {OPEN : '1', CLOSE : '0'}
 
 def recv(sock):
     data = sock.recv(1)
@@ -14,12 +20,13 @@ def recv(sock):
     return message
 
 def verify_slope(address):
-    slope = sum(dict_sensors[address]) / 30
-    return "OPEN" if slope > threshold else "CLOSE"
+    slope = sum(dict_sensors[address]) / MAX_ELEMENTS
+    return OPEN if slope > THRESHOLD else CLOSE
 
 def process(data):
     result = ""
-    if data.startswith("[SENSOR_VALUE]"):
+    #We receive information from the Border Router Node like this : [SENSOR_VALUE] ... sensor_value address
+    if data.startswith(PREFIX):
         splitted = data.split()
         address = splitted[-1]
         sensor_value = int(splitted[-2])
@@ -28,15 +35,16 @@ def process(data):
         if address not in dict_sensors.keys():
             dict_sensors[address] = list()
 
-        #remove first element to keep 30 elements
         len_dict_address = len(dict_sensors[address])
-        if len_dict_address == 30:
+
+        #remove first element when we reach the max_elements we want
+        if len_dict_address == MAX_ELEMENTS:
             dict_sensors[address].pop(0)
 
         dict_sensors[address].append(sensor_value)
 
         #verify the slope only if there is at least 30 values
-        if len_dict_address == 30:
+        if len_dict_address == MAX_ELEMENTS:
             result = verify_slope(address)
     return result
 
@@ -48,7 +56,7 @@ def main(ip, port):
         data = recv(sock).decode("utf-8")
         result = process(data)
         if result:
-            sock.sendall(bytes(result, "utf-8"))
+            sock.sendall(bytes(return_result[result].encode()))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
