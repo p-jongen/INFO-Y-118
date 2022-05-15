@@ -32,4 +32,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     main(args.ip, args.port)
+	
+	#usage: python3 server.py --ip 172.17.0.2 --port 60001
 
