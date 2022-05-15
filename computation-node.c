@@ -12,6 +12,8 @@
 #define LOG_LEVEL LOG_LEVEL_INFO
 
 /* Configuration */
+//#define SEND_INTERVAL_EIGHT (8 * CLOCK_SECOND)
+//#define SEND_INTERVAL_SIXTY (60 * CLOCK_SECOND)
 #define SEND_INTERVAL (1 * CLOCK_SECOND)
 
 static int lenRoutingTable = 50;
@@ -19,6 +21,7 @@ static routingRecord routingTable[50];    //every entry : addSrc, NextHop, TTL
 static int init_var = 0;
 static node_t parent;
 static int rank = 99;
+static unsigned count = 0;
 
 broadcastMsg msg;
 
@@ -31,18 +34,6 @@ extern linkaddr_t linkaddr_node_addr;
 /*---------------------------------------------------------------------------*/
 PROCESS(nullnet_example_process, "NullNet broadcast example");
 AUTOSTART_PROCESSES(&nullnet_example_process);
-
-
-void sendKeepAliveToParent(){
-    broadcastMsg msgPrep;                   //prepare info
-    msgPrep.typeMsg = 0;
-    msgPrep.addSrc = linkaddr_node_addr;
-    msgPrep.addDest = parent.address;
-
-    memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
-    nullnet_len = sizeof(struct Message);
-    NETSTACK_NETWORK.output(&parent.address);
-}
 
 linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
     linkaddr_t nextHopForDest;
@@ -62,6 +53,19 @@ linkaddr_t routingNextHopForDest (linkaddr_t checkAddDest){
     return nextHopForDest;
 }
 
+void sendKeepAliveToParent(){
+    broadcastMsg msgPrep;                   //prepare info
+    msgPrep.typeMsg = 0;
+    msgPrep.addSrc = linkaddr_node_addr;
+    msgPrep.addDest = parent.address;
+
+    nullnet_buf = (uint8_t *)&msgPrep;
+    nullnet_len = sizeof(struct Message);
+    NETSTACK_NETWORK.output(&parent.address);
+    LOG_INFO_("I sent a KEEPALIVE\n");
+}
+
+
 void sendParentProposal(broadcastMsg receivedMsg){
     LOG_INFO_("Computation : Send Unicast Parent Proposal to ");
     LOG_INFO_LLADDR(&receivedMsg.addSrc);
@@ -76,7 +80,7 @@ void sendParentProposal(broadcastMsg receivedMsg){
     LOG_INFO_LLADDR(&msgPrep.addDest);
     LOG_INFO_(" \n");
 
-    memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
+    nullnet_buf = (uint8_t *)&msgPrep;
     nullnet_len = sizeof(struct Message);
     LOG_INFO_("Border : Yaouhou ");
     LOG_INFO_(" \n");
@@ -141,7 +145,7 @@ void sendSignalOpenToSrc(broadcastMsg receivedMsg){
     msgPrep.typeMsg = 4;
     msgPrep.openValve = 1;
 
-    memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
+    nullnet_buf = (uint8_t *)&msgPrep;
     nullnet_len = sizeof(struct Message);
     linkaddr_t dest = routingNextHopForDest(receivedMsg.addSrc);
     NETSTACK_NETWORK.output(&dest);
@@ -170,7 +174,7 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
     if(len == sizeof(struct Message)) {
         broadcastMsg receivedMsg;
         memcpy(&receivedMsg, data, sizeof(struct Message));
-
+        
         routingRecord receivedRR;
         receivedRR.addDest = receivedMsg.addSrc;
         receivedRR.nextHop = *src;
@@ -226,6 +230,7 @@ void requestParentBroadcast(){
     msgPrep.typeMsg = 1;
     msgPrep.addSrc = linkaddr_node_addr;
 
+    nullnet_buf = (uint8_t *)&count;
     memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
     nullnet_len = sizeof(struct Message);
     NETSTACK_NETWORK.output(NULL);
@@ -258,11 +263,11 @@ void keepAliveDecreaseAll(){                            //réduit de 1 tous les 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(nullnet_example_process, ev, data)
 {
-    static struct etimer periodic_timer_parentRequest;
-    static unsigned count = 0;
+  static struct etimer periodic_timer;
+    broadcastMsg msgInit; 
+  PROCESS_BEGIN();
 
-    PROCESS_BEGIN();
-    if(!init_var){
+  if(!init_var){
         routingRecord defaultRR;
         defaultRR.ttl = -1;
         for (int i = 0 ; i < lenRoutingTable ; i++){
@@ -271,41 +276,43 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
         init_var = 1;
     }
 
-    // Initialize NullNet
-    //msg.typeMsg = 3;
-    nullnet_buf = (uint8_t *)&count;
-    nullnet_len = sizeof(count);
-    memcpy(nullnet_buf, &count, sizeof(count));
-    nullnet_set_input_callback(input_callback);         //LISTENER
-    
-    if (count >= 99960){ //éviter roverflow
-            count=0;
-    }
+  /* Initialize NullNet */
+  nullnet_buf = (uint8_t *)&msgInit;
+  nullnet_len = sizeof(struct Message);
+  nullnet_set_input_callback(input_callback);
 
-    etimer_set(&periodic_timer_parentRequest, SEND_INTERVAL);
-       
-    while(1){    
-        PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer_parentRequest));
-        //PARENT SEARCH
-        memcpy(nullnet_buf, &count, sizeof(count));
-        nullnet_len = sizeof(count);
-        NETSTACK_NETWORK.output(NULL);
-        if(parent.hasParent == 0 && count%9 == 0){                 //if no parent, send request
-            LOG_INFO_("Computation parent : None\n");
-            requestParentBroadcast();
-            count++;
-        }
-        //KEEP ALIVE
-        if(parent.hasParent == 1 && count%60 == 0){                 //all keep-alive --
-            sendKeepAliveToParent();
-            keepAliveDecreaseAll();
-            count++;
-        }
+  etimer_set(&periodic_timer, SEND_INTERVAL);
 
+  NETSTACK_NETWORK.output(NULL);
+
+  while(1) {
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
+
+    count++;
+
+    if(parent.hasParent == 0 && count%8 == 0){                 //if no parent, send request
         count++;
-        
-        etimer_reset(&periodic_timer_parentRequest);
+        LOG_INFO_("Computation parent : None\n");
+        //requestParentBroadcast();
+
+        LOG_INFO_("Computation : Sending Parent Request\n");
+        broadcastMsg msgPrep;                   //prepare info
+        msgPrep.typeMsg = 1;
+        msgPrep.addSrc = linkaddr_node_addr;
+        LOG_INFO_("Computation : %d \n", msgPrep.typeMsg);
+        nullnet_buf = (uint8_t *)&msgPrep;
+        //memcpy(nullnet_buf, &msgPrep, sizeof(struct Message));
+        nullnet_len = sizeof(struct Message);
+        NETSTACK_NETWORK.output(NULL); 
     }
-    
-    PROCESS_END();
+    if(parent.hasParent == 1 && count%20 == 0){                 //all keep-alive --
+        count++;
+        sendKeepAliveToParent();
+        //keepAliveDecreaseAll();
+    }
+    etimer_reset(&periodic_timer);
+  }
+
+
+  PROCESS_END();
 }

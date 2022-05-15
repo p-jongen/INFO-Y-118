@@ -31,6 +31,7 @@ static int lenRoutingTable = 50;
 static routingRecord routingTable[50];    //every entry : addSrc, NextHop, TTL
 
 int init_var = 0;
+static unsigned count = 0;
 
 
 /*---------------------------------------------------------------------------*/
@@ -107,8 +108,14 @@ void input_callback(const void *data, uint16_t len,
         receivedRR.nextHop = *src;
         receivedRR.ttl = 10;
         updateRoutingTable(receivedRR);
+        
+        routingRecord receivedRRNextHop;        //màj du previous hop
+        receivedRRNextHop.addDest = *src;
+        receivedRR.nextHop = *src;
+        receivedRR.ttl = 10;
+        updateRoutingTable(receivedRRNextHop);
 
-        //if((receivedMsg.addDest == linkaddr_node_addr) || (receivedMsg.addDest == linkaddr_null)) {  //si msg lui est destiné ou si val par default = broadcast
+        //if(linkaddr_cmp(&receivedMsg.addDest, &linkaddr_node_addr) || linkaddr_cmp(&receivedMsg.addDest, &linkaddr_null)) {  //si msg lui est destiné ou si val par default = broadcast
             if (receivedMsg.typeMsg == 0) {                           //Keep-Alive
                 LOG_INFO_("Border received KEEP alive");
                 updateRoutingTable(receivedRR);
@@ -127,16 +134,6 @@ void input_callback(const void *data, uint16_t len,
                 LOG_INFO_("Border received sensor value (fct vide)\n");
             }
         //}
-        else{          //il forward car pas pour lui
-            routingRecord receivedRRNextHop;        //màj du previous hop
-            receivedRRNextHop.addDest = *src;
-            receivedRR.nextHop = *src;
-            receivedRR.ttl = 10;
-
-            updateRoutingTable(receivedRRNextHop);
-
-            //forward(receivedMsg);
-        }
 
 
          
@@ -170,8 +167,8 @@ void keepAliveDecreaseAll(){                            //réduit de 1 tous les 
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(nullnet_example_process, ev, data){
     static struct etimer periodic_timer;
-    static unsigned count = 0;
-    //broadcastMsg msg;
+    broadcastMsg msgInit;
+    msgInit.typeMsg = 10;
 
     PROCESS_BEGIN();
     if(!init_var){
@@ -183,11 +180,9 @@ PROCESS_THREAD(nullnet_example_process, ev, data){
         init_var = 1;
     }
 
-    // Initialize NullNet
-    //msg.typeMsg = 3;
     
-    nullnet_buf = (uint8_t *)&count;
-    nullnet_len = sizeof(count);
+    nullnet_buf = (uint8_t *)&msgInit;
+    nullnet_len = sizeof(struct Message);
 
     nullnet_set_input_callback(input_callback); //LISTENER packet
 
