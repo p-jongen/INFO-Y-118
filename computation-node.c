@@ -17,6 +17,7 @@
 #define SEND_INTERVAL (1 * CLOCK_SECOND)
 
 static int lenRoutingTable = 50;
+static int lenDBSensorManaged = 30;
 static routingRecord routingTable[50];    //every entry : addSrc, NextHop, TTL
 static int init_var = 0;
 static node_t parent;
@@ -26,7 +27,8 @@ static unsigned count = 0;
 extern const linkaddr_t linkaddr_null;
 extern linkaddr_t linkaddr_node_addr;
 
-
+static saveValSensor DBSensorManaged[5];
+static int threshold = 60;
 
 //static int countTimer = 0;
 
@@ -150,14 +152,55 @@ void sendSignalOpenToSrc(broadcastMsg receivedMsg){
     LOG_INFO_(" \n");
 }
 
-void computeActionFromSensorValue(broadcastMsg receivedMsg){
-    //TODO : compute
-    LOG_INFO_("Computation : Compute sensor analysis\n");
-    int compute = 1;
-    if (compute){           //envoyer signal d'ouverture de valve au sensor src
+computeLeastSquare(broadcastMsg receivedMsg, int indiceInList){
+    int sum = 0;
+    for(int i = 0 ; i < 30 ; i++){
+        sum += DBSensorManaged[indiceInList].val[i];
+        LOG_INFO_("[COMPUTE VAL] :  sum 30 val = ");
+    }
+    sum = sum/30;
+    LOG_INFO_("[COMPUTE VAL] :  sum 30 val / 30 = %d",sum);
+    if (sum > threshold){
         sendSignalOpenToSrc(receivedMsg);
+        LOG_INFO_("[COMPUTE VAL] :  Send Open");
     }else{
-        //forwardToParent       //TODO
+        LOG_INFO_("[COMPUTE VAL] :  Send nothing");
+    }
+}
+
+void computeActionFromSensorValue(broadcastMsg receivedMsg, int inList, int indiceInList, int indiceFreePlaceInList){
+    LOG_INFO_("[COMPUTE VAL] :  INTO computeActionFromSensorValue");
+    if(receivedMsg.sensorValue<100 && receivedMsg.sensorValue >0){
+        if(!inList){                                            //If not yet in the list --> in free space
+            LOG_INFO_("[COMPUTE VAL] :  Add Sensor in Manage List and value as val[0] at indice list = %d", indiceFreePlaceInList);
+            DBSensorManaged[indiceFreePlaceInList].addSensor = receivedMsg.addSrc;
+            DBSensorManaged[indiceFreePlaceInList].val[0] = receivedMsg.sensorValue;
+        }else{                                                  //Else --> add val to the tab
+            LOG_INFO_("[COMPUTE VAL] :  Sensor already in list at indice %d", indiceInList);
+            if(DBSensorManaged[indiceInList].val[29] != -1){    //val[30] already full --> add at the end + delete the oldest
+                LOG_INFO_("[COMPUTE VAL] :  is 30ème val registered for this Sensor --> décale + computeLeastSquare");
+                for(int i = 0 ; i < 29 ; i++){
+                    DBSensorManaged[indiceInList].val[i] = DBSensorManaged[indiceInList].val[i + 1];
+                }
+                DBSensorManaged[indiceInList].val[i] = receivedMsg.sensorValue;
+                computeLeastSquare(receivedMsg, indiceInList);
+            }else{                                              //just add value to the val[]
+                LOG_INFO_("[COMPUTE VAL] :  add value of Sensor indice = %d at val[%d]",indiceInList);
+                for(int i = 0 ; i < 30 ; i++){
+                    if(DBSensorManaged[indiceInList].val[i] == -1){
+                        DBSensorManaged[indiceInList].val[i] = receivedMsg.sensorValue;
+                        LOG_INFO_("[COMPUTE VAL] :  add value of Sensor indice = %d at val[%d]",indiceInList, i);
+                        if(i == 30){
+                            LOG_INFO_("[COMPUTE VAL] :  30ème val[] --> computeLeastSquare");
+                            computeLeastSquare(receivedMsg, indiceInList);
+                        }
+                        i = 30;         //out the for()
+                    }
+                }
+            }
+        }
+    }else{
+        LOG_INFO_("[ERROR] Computation > computeActionFromSensorValue : wrong sensorValue\n");
     }
 }
 
@@ -216,9 +259,38 @@ void input_callback(const void *data, uint16_t len, const linkaddr_t *src, const
                     LOG_INFO_("Computation : Receive sensor value from ");
                     LOG_PRINT_LLADDR(&receivedMsg.addSrc);
                     LOG_INFO_(" \n");
+                    LOG_INFO_("[COMPUTE VAL] :  Receive sensor value");
+
                     if (parent.hasParent) {               //Vérif qu'il a bien un parent
                         //TODO vérif s'il peut prendre un sensor de plus sous son aile
-                        computeActionFromSensorValue(receivedMsg);
+                        //Verify it has still place to manage one more sensor
+                        int hasToForward = 1;
+                        int inList = 0;
+                        int indiceInList = 0;
+                        int indiceFreePlaceInList = 0;
+                        for(int i = (lenDBSensorManaged -1) ; i >= 0 ; i--){
+                            if(linkaddr_cmp(&DBSensorManaged[i].addSensor, &receivedMsg.addSrc){
+                                LOG_INFO_("[COMPUTE VAL] :  Sensor already registered in Manage list at indice %d/5", i);
+
+                                hasToForward = 0;   //Bc the Sensor is in his list of managed Sensor
+                                inList = 1;
+                                indiceInList = i;
+                            }else if(DBSensorManaged[i].val[0] == -1){
+                                LOG_INFO_("[COMPUTE VAL] :  check for last Free Space in Manage list : %d/5 is free", i);
+
+                                indiceFreePlaceInList = i;              //will decrease until the first free place
+                                hasToForward = 0;   //Bc free place for a Sensor in his list of managed Sensor
+                            }
+                        }
+                        if(hasToForward){           //If he can't manage it --> forward
+                            LOG_INFO_("[COMPUTE VAL] :  Manage list full --> forward the Sensor Value");
+
+                            forward(receivedMsg);
+                        }else{                      //Else --> manage it
+                            LOG_INFO_("[COMPUTE VAL] :  ComputeAction --> at place %d in list, the %d ème value, %d indice is first free");
+
+                            computeActionFromSensorValue(receivedMsg, inList, indiceInList, indiceFreePlaceInList);
+                        }
                         updateRoutingTable(receivedRR);
                     }
                 }
@@ -277,14 +349,24 @@ PROCESS_THREAD(nullnet_example_process, ev, data)
         
     PROCESS_BEGIN();
 
+
     if(!init_var){
-            routingRecord defaultRR;
-            defaultRR.ttl = -1;
-            for (int i = 0 ; i < lenRoutingTable ; i++){
-                routingTable[i] = defaultRR;
-            }
-            init_var = 1;
+        routingRecord defaultRR;
+        defaultRR.ttl = -1;
+        for (int i = 0 ; i < lenRoutingTable ; i++){
+            routingTable[i] = defaultRR;
         }
+        saveValSensor defaultValSensor;
+
+        LOG_INFO_("[COMPUTE VAL] :  init the DB of 5 sensors values handled (all val to -1)");
+        for (int i = 0 ; i < 30 ; i++){
+            defaultValSensor.val[i] = -1;
+        }
+        for (int i = 0 ; i < lenDBSensorManaged ; i++){
+            DBSensorManaged[i] = defaultValSensor;
+        }
+        init_var = 1;
+    }
 
     /* Initialize NullNet */
     nullnet_buf = (uint8_t *)&msgInit;

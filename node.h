@@ -38,3 +38,29 @@ struct Message {
     int sensorValue;
     int openValve;
 };
+
+typedef struct DB saveValSensor;
+struct Message {
+    linkaddr_t addSensor;
+    int val[30];
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
