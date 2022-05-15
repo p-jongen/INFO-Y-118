@@ -1,7 +1,6 @@
 import socket
 import argparse
 import sys
-import time
 
 def recv(sock):
     data = sock.recv(1)
@@ -22,10 +21,8 @@ def main(ip, port):
     while True:
         data = recv(sock).decode("utf-8")
         process(data)
-        time.sleep(1)
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--ip", dest="ip", type=str)
     parser.add_argument("--port", dest="port", type=int)
@@ -34,4 +31,3 @@ if __name__ == "__main__":
     main(args.ip, args.port)
 	
 	#usage: python3 server.py --ip 172.17.0.2 --port 60001
-
